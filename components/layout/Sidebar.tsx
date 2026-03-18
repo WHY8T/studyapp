@@ -56,7 +56,6 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
   const { hm, hms } = useClockTime();
   const levelInfo = profile ? getLevelInfo(profile.xp) : null;
 
-  useEffect(() => { onClose?.(); }, [pathname]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setClockOpen(false); };
