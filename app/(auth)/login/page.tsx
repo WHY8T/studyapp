@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, ArrowRight } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -46,7 +46,6 @@ export default function LoginPage() {
 
   return (
     <div className="space-y-8">
-      {/* Mobile logo */}
       <div className="flex items-center gap-3 lg:hidden">
         <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center">
           <span className="font-display font-black text-[#0D0D18] text-base">S</span>
@@ -54,7 +53,6 @@ export default function LoginPage() {
         <span className="font-display font-bold text-xl">StudyFlow</span>
       </div>
 
-      {/* Header */}
       <div className="space-y-2">
         <h1 className="font-display font-black text-3xl">Welcome back</h1>
         <p className="text-muted-foreground">
@@ -62,7 +60,6 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Form */}
       <form onSubmit={handleLogin} className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground/80">Email</label>
@@ -82,10 +79,7 @@ export default function LoginPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-foreground/80">Password</label>
-            <Link
-              href="/forgot-password"
-              className="text-xs text-muted-foreground hover:text-lime transition-colors"
-            >
+            <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-lime transition-colors">
               Forgot password?
             </Link>
           </div>
@@ -103,18 +97,10 @@ export default function LoginPage() {
         </div>
 
         <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
-          {loading ? (
-            <Loader2 className="animate-spin" />
-          ) : (
-            <>
-              Sign in
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
+          {loading ? <Loader2 className="animate-spin" /> : <><ArrowRight className="w-4 h-4" />Sign in</>}
         </Button>
       </form>
 
-      {/* Divider */}
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border" />
@@ -124,27 +110,29 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Register link */}
       <p className="text-center text-sm text-muted-foreground">
         New to StudyFlow?{" "}
-        <Link
-          href="/register"
-          className="font-semibold text-lime hover:text-lime-300 transition-colors"
-        >
+        <Link href="/register" className="font-semibold text-lime hover:text-lime-300 transition-colors">
           Create your account →
         </Link>
       </p>
 
-      {/* XP incentive */}
       <div className="rounded-xl border border-lime/20 bg-lime/5 p-4 flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-lime flex items-center justify-center shrink-0">
           <span className="text-[#0D0D18] font-bold text-sm">⚡</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          <span className="text-foreground font-semibold">+20 XP</span> for logging in
-          during an active streak day
+          <span className="text-foreground font-semibold">+20 XP</span> for logging in during an active streak day
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
