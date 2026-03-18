@@ -1,0 +1,280 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode */
+    --background: 50 30% 97%;
+    --foreground: 230 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 10%;
+    --primary: 197 100% 50%;
+    --primary-foreground: 230 25% 8%;
+    --secondary: 230 15% 90%;
+    --secondary-foreground: 230 25% 20%;
+    --muted: 230 15% 94%;
+    --muted-foreground: 230 15% 50%;
+    --accent: 197 100% 50%;
+    --accent-foreground: 230 25% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 15% 88%;
+    --input: 230 15% 88%;
+    --ring: 197 100% 40%;
+    --radius: 0.75rem;
+    --chart-1: 197 100% 40%;
+    --chart-2: 340 82% 60%;
+    --chart-3: 200 80% 55%;
+    --chart-4: 270 70% 65%;
+    --chart-5: 30 90% 60%;
+
+    /* Custom brand */
+    --lime: #00b7ff;
+    --lime-dim: #56cfff;
+    --coral: #FF6B6B;
+    --surface-1: #FFFFFF;
+    --surface-2: #F5F5F0;
+    --surface-3: #EEEEE8;
+    --glow-lime: 0 0 20px rgba(0,183,255,0.4);
+    --glow-coral: 0 0 20px rgba(255,107,107,0.4);
+  }
+
+  .dark {
+    --background: 230 30% 5%;
+    --foreground: 210 20% 92%;
+    --card: 230 28% 8%;
+    --card-foreground: 210 20% 92%;
+    --popover: 230 28% 8%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 197 100% 50%;
+    --primary-foreground: 230 25% 8%;
+    --secondary: 230 20% 14%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 230 20% 12%;
+    --muted-foreground: 230 15% 50%;
+    --accent: 197 100% 50%;
+    --accent-foreground: 230 25% 8%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 20% 14%;
+    --input: 230 20% 14%;
+    --ring: 197 100% 50%;
+    --chart-1: 197 100% 50%;
+    --chart-2: 340 82% 60%;
+    --chart-3: 200 80% 55%;
+    --chart-4: 270 70% 65%;
+    --chart-5: 30 90% 60%;
+
+    --lime: #00b7ff;
+    --lime-dim: #56cfff;
+    --coral: #FF6B6B;
+    --surface-1: #0D0D18;
+    --surface-2: #12121F;
+    --surface-3: #1A1A2E;
+    --glow-lime: 0 0 30px rgba(0,183,255,0.25);
+    --glow-coral: 0 0 30px rgba(255,107,107,0.25);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .font-display { font-family: var(--font-syne), sans-serif; }
+  .font-body { font-family: var(--font-dm-sans), sans-serif; }
+  .font-mono { font-family: var(--font-jetbrains), monospace; }
+
+  /* Glassmorphism */
+  .glass {
+    @apply backdrop-blur-xl border border-white/10;
+    background: rgba(255,255,255,0.04);
+  }
+  .glass-strong {
+    @apply backdrop-blur-2xl border border-white/15;
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* Lime accent utilities */
+  .text-lime { color: var(--lime); }
+  .bg-lime { background-color: var(--lime); }
+  .border-lime { border-color: var(--lime); }
+  .text-coral { color: var(--coral); }
+  .bg-coral { background-color: var(--coral); }
+
+  /* Glow effects */
+  .glow-lime { box-shadow: var(--glow-lime); }
+  .glow-coral { box-shadow: var(--glow-coral); }
+
+  /* Grid background */
+  .bg-grid {
+    background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 2px;
+  }
+
+  /* XP Bar animation */
+  @keyframes xp-fill {
+    from { width: 0%; }
+    to { width: var(--xp-target, 0%); }
+  }
+
+  .animate-xp-fill {
+    animation: xp-fill 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Shine sweep */
+  @keyframes shine {
+    from { left: -100%; }
+    to { left: 200%; }
+  }
+  .shine-on-hover:hover::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shine 0.6s ease forwards;
+  }
+  .shine-on-hover {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Gradient text */
+  .text-gradient-lime {
+    background: linear-gradient(135deg, #409dc2 0%, #008fc7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Card hover lift */
+  .card-hover {
+    @apply transition-all duration-300;
+  }
+  .card-hover:hover {
+    @apply -translate-y-1;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+
+  /* Noise overlay */
+  .noise::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Level badge */
+  .level-badge {
+    @apply inline-flex items-center justify-center rounded-full font-display font-bold text-xs;
+    background: linear-gradient(135deg, #409dc2, #008fc7);
+    color: #0D0D18;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
+    box-shadow: 0 0 12px rgba(0,183,255,0.5);
+  }
+
+  /* Streak fire */
+  .streak-active {
+    background: linear-gradient(135deg, #FF6B35, #FF4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Pomodoro timer ring */
+.timer-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Custom range input */
+input[type="range"] {
+  @apply appearance-none bg-transparent cursor-pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  @apply rounded-full h-2;
+  background: hsl(var(--muted));
+}
+input[type="range"]::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full -mt-1;
+  background: var(--lime);
+  box-shadow: 0 0 8px rgba(0,183,255,0.5);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* Calendar custom styles */
+.react-calendar {
+  @apply bg-transparent border-0 w-full font-body;
+}
+.react-calendar__navigation {
+  @apply flex items-center mb-4;
+}
+.react-calendar__navigation button {
+  @apply text-foreground font-display font-semibold;
+}
+.react-calendar__tile {
+  @apply text-sm rounded-lg p-2 text-muted-foreground transition-colors;
+}
+.react-calendar__tile:hover {
+  @apply bg-muted text-foreground;
+}
+.react-calendar__tile--active {
+  background: var(--lime) !important;
+  @apply text-foreground font-bold rounded-lg;
+}
+.react-calendar__tile--now {
+  @apply border border-lime-300;
+}
+.react-calendar__month-view__weekdays {
+  @apply text-xs text-muted-foreground font-semibold uppercase;
+}
+.react-calendar__month-view__weekdays abbr {
+  @apply no-underline;
+}
