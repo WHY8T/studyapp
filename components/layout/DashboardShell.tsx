@@ -24,13 +24,17 @@ export function DashboardShell({
                 />
             )}
 
-            {/* Sidebar */}
-            <div
-                className={`fixed inset-y-0 left-0 z-50 lg:static lg:block transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-                    }`}
-            >
+            {/* Sidebar - hidden on mobile unless open */}
+            <div className="hidden lg:block shrink-0">
                 <Sidebar profile={profile} />
             </div>
+
+            {/* Mobile sidebar */}
+            {sidebarOpen && (
+                <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+                    <Sidebar profile={profile} />
+                </div>
+            )}
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
