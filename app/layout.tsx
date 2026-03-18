@@ -1,26 +1,48 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { DashboardShell } from "@/components/layout/DashboardShell";
-import type { Profile } from "@/types";
+import type { Metadata } from "next";
+import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
+import "./globals.css";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
-export default async function DashboardLayout({
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-syne",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "StudyFlow",
+  description: "Your modern student productivity platform",
+};
+
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
   return (
-    <DashboardShell profile={profile as Profile | null}>
-      {children}
-    </DashboardShell>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
   );
 }
