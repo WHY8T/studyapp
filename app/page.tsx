@@ -72,7 +72,9 @@ export default function LandingPage() {
               Get started free
             </Button>
           </Link>
-        </div>
+        </div>  {
+
+        }
       </nav>
 
       {/* Hero */}

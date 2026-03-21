@@ -94,7 +94,7 @@ export default async function DashboardPage() {
       sessions: daySessions.length,
     });
   }
-
+  if (!profile) redirect("/login");
   return (
     <DashboardClient
       profile={profile as Profile}
