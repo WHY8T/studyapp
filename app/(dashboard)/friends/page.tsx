@@ -120,6 +120,19 @@ export default function FriendsPage() {
       toast({ title: "Friend request sent! 👋" });
       setSearchResults((prev) => prev.filter((p) => p.id !== targetId));
       await fetchFriends(userId);
+
+      // 👇 ADD THIS — notify the target user
+      await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: targetId,
+          fromUserId: userId,
+          type: "friend_request",
+          title: "New friend request",
+          message: `${myProfile?.username} wants to be your study buddy!`,
+        }),
+      });
     }
   };
 
@@ -130,7 +143,25 @@ export default function FriendsPage() {
       .update({ status: accept ? "accepted" : "blocked" })
       .eq("id", friendshipId);
 
-    if (accept) toast({ title: "Friend added! ", description: "You can now see each other's progress" });
+    if (accept) {
+      toast({ title: "Friend added!", description: "You can now see each other's progress" });
+
+      // 👇 ADD THIS — notify the person whose request was accepted
+      const acceptedFriend = pendingReceived.find((f) => f.friendship.id === friendshipId);
+      if (acceptedFriend) {
+        await fetch("/api/notifications/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: acceptedFriend.profile.id,
+            fromUserId: userId,
+            type: "friend_accepted",
+            title: "Friend request accepted! 🎉",
+            message: `${myProfile?.username} accepted your friend request. Start studying together!`,
+          }),
+        });
+      }
+    }
     await fetchFriends(userId);
   };
 

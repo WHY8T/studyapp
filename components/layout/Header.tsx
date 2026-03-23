@@ -2,7 +2,8 @@
 
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Sun, Moon, Bell, Menu } from "lucide-react";
+import { Sun, Moon, Menu } from "lucide-react";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { getGreeting } from "@/lib/utils";
 import type { Profile } from "@/types";
 
@@ -43,10 +44,7 @@ export function Header({ profile, onMenuToggle }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon-sm" className="relative">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-lime" />
-        </Button>
+        <NotificationBell />
 
         <Button
           variant="ghost"
