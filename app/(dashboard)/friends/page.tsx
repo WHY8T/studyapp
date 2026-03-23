@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ interface FriendWithProfile {
 
 export default function FriendsPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
@@ -128,7 +130,7 @@ export default function FriendsPage() {
       .update({ status: accept ? "accepted" : "blocked" })
       .eq("id", friendshipId);
 
-    if (accept) toast({ title: "Friend added! 🎉", description: "You can now see each other's progress" });
+    if (accept) toast({ title: "Friend added! ", description: "You can now see each other's progress" });
     await fetchFriends(userId);
   };
 
@@ -276,7 +278,7 @@ export default function FriendsPage() {
             {friends.map(({ friendship, profile: p }) => {
               const levelInfo = getLevelInfoFn(p.xp);
               return (
-                <Card key={friendship.id} className="card-hover">
+                <Card key={friendship.id} className="card-hover cursor-pointer" onClick={() => router.push(`/profile/${p.username}`)}>
                   <CardContent className="p-5 space-y-4">
                     {/* Profile header */}
                     <div className="flex items-center gap-3">
@@ -295,7 +297,7 @@ export default function FriendsPage() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => removeFriend(friendship.id)}
+                        onClick={(e) => { e.stopPropagation(); removeFriend(friendship.id); }}
                         className="text-muted-foreground hover:text-destructive"
                       >
                         <X className="w-3 h-3" />
