@@ -31,7 +31,7 @@ export function Header({ profile, onMenuToggle }: HeaderProps) {
         <div>
           <p className="font-display font-bold text-sm">
             {getGreeting()}{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
-            {" "}👋
+            {" "}
           </p>
           <p className="text-xs text-muted-foreground">
             {new Date().toLocaleDateString("en-US", {

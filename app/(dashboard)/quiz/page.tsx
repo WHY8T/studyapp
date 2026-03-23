@@ -1,70 +1,267 @@
+
 "use client";
 
-import Link from "next/link";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Sparkles,
+  Upload,
+  FileText,
+  X,
+  Check,
+  ChevronRight,
+  Loader2,
+  Trophy,
+  Zap,
+  Brain,
+  RotateCcw,
+  Lightbulb,
+} from "lucide-react";
+
+type Difficulty = "easy" | "medium" | "hard" | "mixed";
+type QuizStage = "upload" | "generating" | "taking" | "results";
+
+interface Option {
+  text: string;
+  correct: boolean;
+}
+
+interface Question {
+  question: string;
+  options: Option[];
+  explanation: string;
+  hint: string;
+  difficulty: "easy" | "medium" | "hard";
+}
+
+const DIFFICULTY_CONFIG = {
+  easy: {
+    label: "Easy",
+    color: "text-green-400",
+    bg: "bg-green-400/10 border-green-400/30",
+    active: "bg-green-400 text-[#0D0D18]",
+    emoji: "🟢",
+  },
+  medium: {
+    label: "Medium",
+    color: "text-yellow-400",
+    bg: "bg-yellow-400/10 border-yellow-400/30",
+    active: "bg-yellow-400 text-[#0D0D18]",
+    emoji: "🟡",
+  },
+  hard: {
+    label: "Hard",
+    color: "text-red-400",
+    bg: "bg-red-400/10 border-red-400/30",
+    active: "bg-red-400 text-[#0D0D18]",
+    emoji: "🔴",
+  },
+  mixed: {
+    label: "Mixed",
+    color: "text-[#00b7ff]",
+    bg: "bg-[#00b7ff]/10 border-[#00b7ff]/30",
+    active: "bg-[#00b7ff] text-[#0D0D18]",
+    emoji: "",
+  },
+};
+
+const QUESTION_COUNTS = [5, 10, 15, 20];
 
 export default function QuizPage() {
+  const { toast } = useToast();
+  const router = useRouter();
+  const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [stage, setStage] = useState<QuizStage>("upload");
+  const [file, setFile] = useState<File | null>(null);
+  const [quizTitle, setQuizTitle] = useState("");
+  const [difficulty, setDifficulty] = useState<Difficulty>("mixed");
+  const [questionCount, setQuestionCount] = useState(10);
+  const [dragOver, setDragOver] = useState(false);
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [autoSummary, setAutoSummary] = useState("");
+  const [currentQ, setCurrentQ] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [answered, setAnswered] = useState(false);
+  const [answers, setAnswers] = useState<(number | null)[]>([]);
+  const [hintText, setHintText] = useState("");
+  const [loadingHint, setLoadingHint] = useState(false);
+  const [generatingMsg, setGeneratingMsg] = useState("Analyzing your document...");
+
+  const handleFile = (f: File) => {
+    if (f.type !== "application/pdf") {
+      toast({ title: "Only PDF files are supported", variant: "destructive" });
+      return;
+    }
+
+    if (f.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large (max 10MB)", variant: "destructive" });
+      return;
+    }
+
+    setFile(f);
+  };
+
+  const generateQuiz = async () => {
+    if (!file) return;
+
+    setStage("generating");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const parseRes = await fetch("/api/pdf/parse", {
+        method: "POST",
+        body: formData,
+      });
+
+      const parseData = await parseRes.json();
+
+      const genRes = await fetch("/api/quiz/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: parseData.text,
+          title: quizTitle,
+          questionCount,
+          difficulty,
+        }),
+      });
+
+      const genData = await genRes.json();
+
+      setQuestions(genData.questions);
+      setAnswers(Array.from({ length: genData.questions.length }, () => null));
+      setStage("taking");
+    } catch (err: any) {
+      toast({
+        title: "Generation failed",
+        description: err.message,
+        variant: "destructive",
+      });
+      setStage("upload");
+    }
+  };
+
+  const handleAnswer = (idx: number) => {
+    if (answered) return;
+
+    setSelected(idx);
+    setAnswered(true);
+
+    const newAnswers = [...answers];
+    newAnswers[currentQ] = idx;
+    setAnswers(newAnswers);
+  };
+
+  const nextQuestion = () => {
+    if (currentQ + 1 >= questions.length) {
+      setStage("results");
+      return;
+    }
+
+    setCurrentQ((prev) => prev + 1);
+    setSelected(null);
+    setAnswered(false);
+    setHintText("");
+  };
+
+  const score: number = answers.reduce((acc: number, ans, i: number) => {
+    if (ans === null) return acc;
+
+    const option = questions[i]?.options[ans];
+
+    if (!option) return acc;
+
+    return acc + (option.correct ? 1 : 0);
+  }, 0);
+
+  const pct = questions.length
+    ? Math.round((score / questions.length) * 100)
+    : 0;
+
+  const xpEarned =
+    pct >= 100 ? 150 :
+      pct >= 80 ? 100 :
+        pct >= 60 ? 75 :
+          25;
+
+  const reset = () => {
+    setStage("upload");
+    setFile(null);
+    setQuizTitle("");
+    setDifficulty("mixed");
+    setQuestionCount(10);
+    setQuestions([]);
+    setAnswers([]);
+    setCurrentQ(0);
+    setSelected(null);
+    setAnswered(false);
+    setHintText("");
+    setAutoSummary("");
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4 space-y-8">
-      {/* Icon */}
-      <div className="relative">
-        <div className="w-28 h-28 rounded-3xl bg-lime/10 border border-lime/20 flex items-center justify-center">
-          <Sparkles className="w-14 h-14 text-lime" />
-        </div>
-        <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-lime/20 flex items-center justify-center text-sm">
-          🔮
-        </div>
-      </div>
+    <div className="max-w-2xl mx-auto space-y-6">
+      {stage === "upload" && (
+        <>
+          <Input
+            placeholder="Quiz title"
+            value={quizTitle}
+            onChange={(e) => setQuizTitle(e.target.value)}
+          />
 
-      {/* Text */}
-      <div className="space-y-3 max-w-md">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-lime/10 border border-lime/20 text-lime text-xs font-bold uppercase tracking-widest">
-          🚧 Coming Soon
-        </div>
-        <h1 className="font-display font-black text-4xl">AI Quiz Generator</h1>
-        <p className="text-muted-foreground text-lg leading-relaxed">
-          Upload any PDF and get an instant personalized quiz powered by AI. Study smarter — not harder.
-        </p>
-      </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          />
 
-      {/* Feature preview */}
-      <div className="grid grid-cols-3 gap-4 max-w-lg w-full">
-        {[
-          { icon: "📄", title: "Upload PDF", desc: "Any document, any subject" },
-          { icon: "🤖", title: "AI Processes", desc: "Generates smart questions" },
-          { icon: "🏆", title: "Earn XP", desc: "Score big on quizzes" },
-        ].map((f) => (
-          <div
-            key={f.title}
-            className="rounded-2xl border border-border bg-card p-4 space-y-2"
-          >
-            <span className="text-2xl">{f.icon}</span>
-            <p className="font-display font-bold text-sm">{f.title}</p>
-            <p className="text-xs text-muted-foreground">{f.desc}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* CTA */}
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          While you wait, keep studying with your other tools
-        </p>
-        <div className="flex items-center gap-3">
-          <Button asChild>
-            <Link href="/pomodoro">
-              Start Pomodoro
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+          <Button onClick={generateQuiz} disabled={!file}>
+            Generate Quiz
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/todos">
-              Manage Tasks
-            </Link>
+        </>
+      )}
+
+      {stage === "taking" && questions[currentQ] && (
+        <>
+          <h2>{questions[currentQ].question}</h2>
+
+          {questions[currentQ].options.map((opt, i) => (
+            <Button key={i} onClick={() => handleAnswer(i)}>
+              {opt.text}
+            </Button>
+          ))}
+
+          {answered && (
+            <Button onClick={nextQuestion}>
+              Next Question
+            </Button>
+          )}
+        </>
+      )}
+
+      {stage === "results" && (
+        <>
+          <h1>{pct}%</h1>
+          <p>{score} / {questions.length} correct</p>
+          <p>+{xpEarned} XP</p>
+
+          <Button onClick={reset}>
+            New Quiz
           </Button>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -107,7 +107,7 @@ export default function RegisterPage() {
 
     if (data.session) {
       toast({
-        title: "Welcome to StudyFlow! 🎉",
+        title: "Welcome to StudyFlow! ",
         description: "Your journey begins now. +100 XP for joining!",
       });
       router.push("/dashboard");
