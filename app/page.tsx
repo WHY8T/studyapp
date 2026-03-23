@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Star,
   Flame,
+  Code2,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -72,9 +73,7 @@ export default function LandingPage() {
               Get started free
             </Button>
           </Link>
-        </div>  {
-
-        }
+        </div>
       </nav>
 
       {/* Hero */}
@@ -210,14 +209,25 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 px-8 py-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
+      <footer className="border-t border-white/10 px-8 py-10 text-center space-y-4">
+        <div className="flex items-center justify-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-lime flex items-center justify-center">
             <span className="font-display font-black text-[#0D0D18] text-sm">S</span>
           </div>
           <span className="font-display font-bold">StudyFlow</span>
         </div>
+
         <p className="text-white/30 text-sm">© 2025 StudyFlow. Built for students, by students.</p>
+
+        {/* Made by credit */}
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5">
+          <Code2 className="w-3.5 h-3.5 text-lime" />
+          <span className="text-white/50 text-xs">
+            Designed & built by{" "}
+            <span className="text-lime font-semibold">Ghoubali Abdelwaheb</span>
+            {" "}— a student, for students 🎓
+          </span>
+        </div>
       </footer>
     </div>
   );

@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Loader2,
   Camera,
+  Code2,
 } from "lucide-react";
 import {
   AreaChart,
@@ -36,6 +37,22 @@ import {
   CartesianGrid,
 } from "recharts";
 import { format, subDays } from "date-fns";
+
+// ── Developer badge – shown on avatar corner for the app creator ──────────────
+// Replace this with your own Supabase user ID to show the badge only on your profile
+const DEVELOPER_ID = "wahebb";
+
+function DevBadge() {
+  return (
+    <div
+      title="App Developer"
+      className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full border-2 border-card flex items-center justify-center shadow-lg z-10"
+      style={{ background: "linear-gradient(135deg, #00b7ff, #0055aa)" }}
+    >
+      <Code2 className="w-3.5 h-3.5 text-white" />
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -193,6 +210,7 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   const levelInfo = getLevelInfoFn(profile.xp);
+  const isDeveloper = profile.id === DEVELOPER_ID;
 
   const stats = [
     { label: "Total XP", value: profile.xp.toLocaleString(), icon: Zap, color: "text-lime" },
@@ -209,7 +227,7 @@ export default function ProfilePage() {
       <Card className="overflow-hidden">
         <div className="h-24 bg-gradient-to-r from-[#0A0A14] via-[#1a1a30] to-[#0A0A14] relative">
           <div className="absolute inset-0 bg-grid opacity-30" />
-          {/* Avatar with upload */}
+          {/* Avatar with upload + dev badge */}
           <div className="absolute -bottom-8 left-6">
             <div className="relative group">
               {profile.avatar_url ? (
@@ -226,6 +244,10 @@ export default function ProfilePage() {
                   {profile.username.slice(0, 2).toUpperCase()}
                 </div>
               )}
+
+              {/* Developer badge on avatar corner */}
+              {isDeveloper && <DevBadge />}
+
               {/* Camera overlay on hover */}
               <button
                 onClick={() => avatarInputRef.current?.click()}
@@ -252,18 +274,28 @@ export default function ProfilePage() {
         <CardContent className="pt-12 pb-6 px-6">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              {editing ? (
-                <Input
-                  value={editForm.full_name}
-                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                  placeholder="Full name"
-                  className="font-display font-bold text-xl h-auto py-1"
-                />
-              ) : (
-                <h1 className="font-display font-black text-xl">
-                  {profile.full_name || profile.username}
-                </h1>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {editing ? (
+                  <Input
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                    placeholder="Full name"
+                    className="font-display font-bold text-xl h-auto py-1"
+                  />
+                ) : (
+                  <h1 className="font-display font-black text-xl">
+                    {profile.full_name || profile.username}
+                  </h1>
+                )}
+                {/* Developer label next to name */}
+                {isDeveloper && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
+                    style={{ background: "rgba(0,183,255,0.1)", borderColor: "rgba(0,183,255,0.3)", color: "#00b7ff" }}>
+                    <Code2 className="w-3 h-3" />
+                    App Developer
+                  </span>
+                )}
+              </div>
               {editing ? (
                 <div className="flex items-center gap-1 mt-1">
                   <span className="text-muted-foreground text-sm">@</span>
