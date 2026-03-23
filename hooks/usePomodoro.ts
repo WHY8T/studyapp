@@ -14,6 +14,45 @@ const DEFAULT_SETTINGS: PomodoroSettings = {
   soundEnabled: true,
 };
 
+const PERSIST_KEY = "studyflow:pomodoro-state";
+
+interface PersistedState {
+  phase: PomodoroPhase;
+  secondsLeft: number;
+  sessionCount: number;
+  isRunning: boolean;
+  savedAt: number; // timestamp when we saved
+}
+
+function loadPersistedState(): PersistedState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PERSIST_KEY);
+    if (!raw) return null;
+    const state: PersistedState = JSON.parse(raw);
+    // If it was running, calculate how many seconds passed while away
+    if (state.isRunning && state.savedAt) {
+      const elapsed = Math.floor((Date.now() - state.savedAt) / 1000);
+      state.secondsLeft = Math.max(0, state.secondsLeft - elapsed);
+    }
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function saveState(state: PersistedState) {
+  try {
+    localStorage.setItem(PERSIST_KEY, JSON.stringify(state));
+  } catch { /* ignore */ }
+}
+
+function clearState() {
+  try {
+    localStorage.removeItem(PERSIST_KEY);
+  } catch { /* ignore */ }
+}
+
 interface UsePomodoroOptions {
   onSessionComplete?: (durationMinutes: number, phase: PomodoroPhase) => void;
   settings?: Partial<PomodoroSettings>;
@@ -25,40 +64,67 @@ export function usePomodoro({
 }: UsePomodoroOptions = {}) {
   const settings = { ...DEFAULT_SETTINGS, ...settingsOverride };
 
-  const [phase, setPhase] = useState<PomodoroPhase>("work");
-  const [isRunning, setIsRunning] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
-  const [sessionCount, setSessionCount] = useState(0);
+  // Load persisted state on first render
+  const persisted = typeof window !== "undefined" ? loadPersistedState() : null;
+
+  const [phase, setPhase] = useState<PomodoroPhase>(persisted?.phase ?? "work");
+  const [isRunning, setIsRunning] = useState(persisted?.isRunning ?? false);
+  const [sessionCount, setSessionCount] = useState(persisted?.sessionCount ?? 0);
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (persisted) return persisted.secondsLeft;
+    return settings.workMinutes * 60;
+  });
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Refs to avoid stale closures inside interval / advance
-  const phaseRef = useRef<PomodoroPhase>("work");
-  const sessionCountRef = useRef(0);
+  const phaseRef = useRef<PomodoroPhase>(phase);
+  const sessionCountRef = useRef(sessionCount);
   const settingsRef = useRef(settings);
-  // Tracks actual seconds elapsed in the current work phase
   const workSecondsElapsedRef = useRef(0);
+  const secondsLeftRef = useRef(secondsLeft);
 
-  // Keep refs in sync with latest state/props
   phaseRef.current = phase;
   sessionCountRef.current = sessionCount;
   settingsRef.current = settings;
+  secondsLeftRef.current = secondsLeft;
 
-  // ── Utilities ──────────────────────────────────────────────
+  // ── Persist state whenever it changes ──────────────────────
+  useEffect(() => {
+    saveState({
+      phase,
+      secondsLeft,
+      sessionCount,
+      isRunning,
+      savedAt: Date.now(),
+    });
+  }, [phase, secondsLeft, sessionCount, isRunning]);
 
-  const getPhaseSeconds = useCallback((p: PomodoroPhase): number => {
-    const s = settingsRef.current;
-    if (p === "work") return s.workMinutes * 60;
-    if (p === "break") return s.breakMinutes * 60;
-    return s.longBreakMinutes * 60;
-  }, []);
+  // ── Save on page unload/navigation ─────────────────────────
+  useEffect(() => {
+    const handleUnload = () => {
+      saveState({
+        phase: phaseRef.current,
+        secondsLeft: secondsLeftRef.current,
+        sessionCount: sessionCountRef.current,
+        isRunning,
+        savedAt: Date.now(),
+      });
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    // Also save on visibility change (mobile navigation)
+    document.addEventListener("visibilitychange", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      document.removeEventListener("visibilitychange", handleUnload);
+      handleUnload(); // save on component unmount (route change)
+    };
+  }, [isRunning]);
 
+  // ── Utilities ───────────────────────────────────────────────
   const playSound = useCallback((type: "work" | "break") => {
     if (!settingsRef.current.soundEnabled) return;
     try {
       const AudioCtx =
-        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ??
-        window.AudioContext;
+        (window as any).webkitAudioContext ?? window.AudioContext;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -70,102 +136,65 @@ export function usePomodoro({
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
       osc.start();
       osc.stop(ctx.currentTime + 0.8);
-    } catch {
-      // AudioContext unavailable
-    }
+    } catch { /* ignore */ }
   }, []);
 
   const sendNotification = useCallback((title: string, body: string) => {
-    if (
-      typeof window !== "undefined" &&
-      "Notification" in window &&
-      Notification.permission === "granted"
-    ) {
-      try {
-        new Notification(title, { body, icon: "/favicon.ico" });
-      } catch {
-        // Notification API unavailable
-      }
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      try { new Notification(title, { body, icon: "/favicon.ico" }); } catch { /* ignore */ }
     }
   }, []);
 
   const requestNotificationPermission = useCallback(async () => {
-    if (
-      typeof window !== "undefined" &&
-      "Notification" in window &&
-      Notification.permission === "default"
-    ) {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
       await Notification.requestPermission();
     }
   }, []);
 
   // ── Advance to next phase ───────────────────────────────────
-  // isSkip = true → user pressed Skip: use actual elapsed time
-  // isSkip = false → natural timer end: use full preset duration
+  const advance = useCallback((isSkip: boolean) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setIsRunning(false);
 
-  const advance = useCallback(
-    (isSkip: boolean) => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      setIsRunning(false);
+    const currentPhase = phaseRef.current;
+    const s = settingsRef.current;
 
-      const currentPhase = phaseRef.current;
-      const s = settingsRef.current;
+    if (currentPhase === "work") {
+      const newCount = sessionCountRef.current + 1;
+      setSessionCount(newCount);
 
-      if (currentPhase === "work") {
-        const newCount = sessionCountRef.current + 1;
-        setSessionCount(newCount);
+      const elapsedSeconds = workSecondsElapsedRef.current;
+      const actualMinutes = isSkip
+        ? Math.max(1, Math.floor(elapsedSeconds / 60))
+        : s.workMinutes;
 
-        // Calculate actual minutes studied
-        const elapsedSeconds = workSecondsElapsedRef.current;
-        const actualMinutes = isSkip
-          ? Math.max(1, Math.floor(elapsedSeconds / 60))
-          : s.workMinutes;
+      workSecondsElapsedRef.current = 0;
 
-        // Reset elapsed counter
-        workSecondsElapsedRef.current = 0;
-
-        // Notify parent (save to DB, award XP, etc.)
-        if (actualMinutes >= 1) {
-          onSessionComplete?.(actualMinutes, "work");
-        }
-
-        // Determine next phase
-        const nextPhase =
-          newCount % s.sessionsBeforeLongBreak === 0 ? "longBreak" : "break";
-
-        setPhase(nextPhase);
-        setSecondsLeft(nextPhase === "longBreak" ? s.longBreakMinutes * 60 : s.breakMinutes * 60);
-
-        playSound("break");
-        sendNotification(
-          "Focus session complete! 🎉",
-          isSkip
-            ? `You studied for ${actualMinutes} min. Take a well-deserved break!`
-            : `${s.workMinutes}-min session done. Time for a break!`
-        );
-
-        if (s.autoStartBreak) {
-          setTimeout(() => setIsRunning(true), 100);
-        }
-      } else {
-        // Break ended → back to work
-        workSecondsElapsedRef.current = 0;
-        setPhase("work");
-        setSecondsLeft(s.workMinutes * 60);
-
-        playSound("work");
-        sendNotification("Break over! 💪", "Ready for your next focus session?");
-
-        if (s.autoStartWork) {
-          setTimeout(() => setIsRunning(true), 100);
-        }
+      if (actualMinutes >= 1) {
+        onSessionComplete?.(actualMinutes, "work");
       }
-    },
-    [onSessionComplete, playSound, sendNotification]
-  );
+
+      const nextPhase = newCount % s.sessionsBeforeLongBreak === 0 ? "longBreak" : "break";
+      setPhase(nextPhase);
+      setSecondsLeft(nextPhase === "longBreak" ? s.longBreakMinutes * 60 : s.breakMinutes * 60);
+
+      playSound("break");
+      sendNotification("Focus session complete! 🎉",
+        isSkip ? `You studied for ${actualMinutes} min. Take a break!` : `${s.workMinutes}-min session done. Break time!`
+      );
+
+      if (s.autoStartBreak) setTimeout(() => setIsRunning(true), 100);
+    } else {
+      workSecondsElapsedRef.current = 0;
+      setPhase("work");
+      setSecondsLeft(s.workMinutes * 60);
+      playSound("work");
+      sendNotification("Break over! 💪", "Ready for your next focus session?");
+      if (s.autoStartWork) setTimeout(() => setIsRunning(true), 100);
+    }
+  }, [onSessionComplete, playSound, sendNotification]);
 
   // ── Countdown interval ──────────────────────────────────────
-
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -174,13 +203,8 @@ export function usePomodoro({
 
     intervalRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
-        // Increment elapsed work seconds FIRST (before checking completion)
-        if (phaseRef.current === "work") {
-          workSecondsElapsedRef.current += 1;
-        }
-
+        if (phaseRef.current === "work") workSecondsElapsedRef.current += 1;
         if (prev <= 1) {
-          // Natural completion — schedule advance outside setState
           setTimeout(() => advance(false), 0);
           return 0;
         }
@@ -188,13 +212,10 @@ export function usePomodoro({
       });
     }, 1000);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRunning, advance]);
 
   // ── Public API ──────────────────────────────────────────────
-
   const start = useCallback(() => {
     requestNotificationPermission();
     setIsRunning(true);
@@ -206,13 +227,12 @@ export function usePomodoro({
     if (intervalRef.current) clearInterval(intervalRef.current);
     setIsRunning(false);
     workSecondsElapsedRef.current = 0;
-    setSecondsLeft(
-      phaseRef.current === "work"
-        ? settingsRef.current.workMinutes * 60
-        : phaseRef.current === "break"
-        ? settingsRef.current.breakMinutes * 60
-        : settingsRef.current.longBreakMinutes * 60
-    );
+    const s = settingsRef.current;
+    const secs = phaseRef.current === "work" ? s.workMinutes * 60
+      : phaseRef.current === "break" ? s.breakMinutes * 60
+        : s.longBreakMinutes * 60;
+    setSecondsLeft(secs);
+    clearState();
   }, []);
 
   const skipPhase = useCallback(() => advance(true), [advance]);
@@ -224,34 +244,24 @@ export function usePomodoro({
     setPhase(p);
     const s = settingsRef.current;
     setSecondsLeft(
-      p === "work"
-        ? s.workMinutes * 60
-        : p === "break"
-        ? s.breakMinutes * 60
-        : s.longBreakMinutes * 60
+      p === "work" ? s.workMinutes * 60
+        : p === "break" ? s.breakMinutes * 60
+          : s.longBreakMinutes * 60
     );
   }, []);
 
   const totalSeconds =
-    phase === "work"
-      ? settings.workMinutes * 60
-      : phase === "break"
-      ? settings.breakMinutes * 60
-      : settings.longBreakMinutes * 60;
+    phase === "work" ? settings.workMinutes * 60
+      : phase === "break" ? settings.breakMinutes * 60
+        : settings.longBreakMinutes * 60;
 
   const progress = ((totalSeconds - secondsLeft) / totalSeconds) * 100;
 
   return {
-    phase,
-    isRunning,
-    secondsLeft,
+    phase, isRunning, secondsLeft,
     formattedTime: formatTimer(secondsLeft),
-    progress,
-    sessionCount,
-    start,
-    pause,
-    reset,
-    skipPhase,
+    progress, sessionCount,
+    start, pause, reset, skipPhase,
     setPhase: setPhaseManually,
     settings,
   };
