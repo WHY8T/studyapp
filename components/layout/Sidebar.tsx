@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { href: "/pomodoro", label: "Pomodoro", icon: Timer },
   { href: "/todos", label: "Tasks", icon: CheckSquare },
   { href: "/calendar", label: "Calendar", icon: Calendar },
-  { href: "/quiz", label: "AI Quiz", icon: Sparkles, badge: "Soon" },
+  { href: "/quiz", label: "AI Quiz", icon: Sparkles, badge: "AI" },
   { href: "/achievements", label: "Achievements", icon: Trophy },
   { href: "/leaderboard", label: "Leaderboard", icon: BarChart2 },
   { href: "/friends", label: "Friends", icon: Users },
@@ -130,7 +130,7 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
               >
                 <Icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0D0D18]" : "")} />
                 {label}
-                {badge && <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-400/20 text-orange-400">{badge}</span>}
+                {badge && <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-400/20 text-green-400">{badge}</span>}
               </Link>
             );
           })}
