@@ -223,7 +223,7 @@ export default function LandingPage() {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5">
           <Code2 className="w-3.5 h-3.5 text-lime" />
           <span className="text-white/50 text-xs">
-            Designed & built by{" "}
+            Designed & built by{"ghoubali abdelwaheb"}
             <span className="text-lime font-semibold">Ghoubali Abdelwaheb</span>
             {" "}— a student, for students 🎓
           </span>

@@ -40,7 +40,7 @@ import { format, subDays } from "date-fns";
 
 // ── Developer badge – shown on avatar corner for the app creator ──────────────
 // Replace this with your own Supabase user ID to show the badge only on your profile
-const DEVELOPER_ID = "wahebb";
+const DEVELOPER_ID = "2a9cccae-7e48-4db1-a696-2cbd44104fda";
 
 function DevBadge() {
   return (
