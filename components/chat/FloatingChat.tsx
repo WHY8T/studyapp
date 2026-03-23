@@ -250,9 +250,16 @@ export default function FloatingChat() {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
-                : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-            const recorder = new MediaRecorder(stream, { mimeType });
+            // AFTER
+            const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+                ? "audio/webm;codecs=opus"
+                : MediaRecorder.isTypeSupported("audio/webm")
+                    ? "audio/webm"
+                    : MediaRecorder.isTypeSupported("audio/mp4")
+                        ? "audio/mp4"
+                        : "";
+
+            const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
             audioChunksRef.current = [];
             recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
             recorder.start(100); mediaRecorderRef.current = recorder;
@@ -341,7 +348,7 @@ export default function FloatingChat() {
                                     <button onClick={sendStudyInvite} disabled={sendingStudyInvite || !!studyRoom} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-lime transition-colors disabled:opacity-40">
                                         {sendingStudyInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Timer className="w-4 h-4" />}
                                     </button>
-                                    <button onClick={() => setOpen(false)} className="hidden sm:flex p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <X className="w-4 h-4" />
                                     </button>
                                 </div>
