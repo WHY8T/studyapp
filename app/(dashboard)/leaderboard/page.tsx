@@ -24,15 +24,29 @@ export default function LeaderboardPage() {
 
       const orderCol = type === "xp" ? "xp" : type === "streak" ? "streak_current" : "total_study_minutes";
 
+      // Get friend IDs
+      const { data: friendships } = await supabase
+        .from("friendships")
+        .select("requester_id, addressee_id")
+        .eq("status", "accepted")
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
+      const friendIds = (friendships ?? []).map((f) =>
+        f.requester_id === user.id ? f.addressee_id : f.requester_id
+      );
+
+      // Include self
+      const ids = [...friendIds, user.id];
+
       const [{ data: board }, { data: prof }] = await Promise.all([
         supabase
           .from("profiles")
           .select("*")
+          .in("id", ids)
           .order(orderCol, { ascending: false })
           .limit(50),
         supabase.from("profiles").select("*").eq("id", user.id).single(),
       ]);
-
       setLeaderboard((board as Profile[]) ?? []);
       setCurrentUser(prof as Profile);
       setLoading(false);
@@ -58,9 +72,8 @@ export default function LeaderboardPage() {
           <button
             key={t}
             onClick={() => setType(t)}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all ${
-              type === t ? "bg-lime text-[#0D0D18]" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all ${type === t ? "bg-lime text-[#0D0D18]" : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             {t === "xp" ? "⚡ XP" : t === "streak" ? "🔥 Streak" : "⏱ Study Time"}
           </button>
@@ -84,8 +97,8 @@ export default function LeaderboardPage() {
                 {type === "xp"
                   ? `${currentUser.xp.toLocaleString()} XP`
                   : type === "streak"
-                  ? `${currentUser.streak_current} days`
-                  : formatMinutes(currentUser.total_study_minutes)}
+                    ? `${currentUser.streak_current} days`
+                    : formatMinutes(currentUser.total_study_minutes)}
               </p>
               <p className="text-xs text-muted-foreground">
                 Level {getLevelInfoFn(currentUser.xp).level}
@@ -112,9 +125,8 @@ export default function LeaderboardPage() {
               return (
                 <div
                   key={player.id}
-                  className={`flex items-center gap-4 px-5 py-4 transition-colors ${
-                    isMe ? "bg-lime/5" : "hover:bg-muted/30"
-                  }`}
+                  className={`flex items-center gap-4 px-5 py-4 transition-colors ${isMe ? "bg-lime/5" : "hover:bg-muted/30"
+                    }`}
                 >
                   {/* Rank */}
                   <div className="w-8 text-center shrink-0">
@@ -157,8 +169,8 @@ export default function LeaderboardPage() {
                       {type === "xp"
                         ? `${player.xp.toLocaleString()}`
                         : type === "streak"
-                        ? `${player.streak_current}`
-                        : formatMinutes(player.total_study_minutes)}
+                          ? `${player.streak_current}`
+                          : formatMinutes(player.total_study_minutes)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {type === "xp" ? "XP" : type === "streak" ? "days" : "studied"}

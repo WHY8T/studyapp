@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import FloatingChat from "@/components/chat/FloatingChat";
 import type { Profile } from "@/types";
 
 export default async function DashboardLayout({
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
   return (
     <DashboardShell profile={profile as Profile | null}>
       {children}
+      <FloatingChat />
     </DashboardShell>
   );
 }

@@ -42,7 +42,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: "", bio: "" });
+  const [editForm, setEditForm] = useState({ full_name: "", bio: "", username: "" });
   const [achievements, setAchievements] = useState<UserAchievement[]>([]);
   const [xpHistory, setXpHistory] = useState<any[]>([]);
   const [studyChartData, setStudyChartData] = useState<any[]>([]);
@@ -74,7 +74,7 @@ export default function ProfilePage() {
       ]);
 
       setProfile(prof as Profile);
-      setEditForm({ full_name: prof?.full_name ?? "", bio: prof?.bio ?? "" });
+      setEditForm({ full_name: prof?.full_name ?? "", bio: prof?.bio ?? "", username: prof?.username ?? "" });
       setAchievements((earned as UserAchievement[]) ?? []);
       setTotalTodosCompleted(todos?.length ?? 0);
       setTotalQuizzes(quizAttempts?.length ?? 0);
@@ -112,9 +112,23 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!profile) return;
+
+    if (editForm.username !== profile.username) {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", editForm.username.toLowerCase())
+        .maybeSingle();
+
+      if (existing) {
+        toast({ title: "Username taken", description: "Choose a different username.", variant: "destructive" });
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: editForm.full_name, bio: editForm.bio })
+      .update({ full_name: editForm.full_name, bio: editForm.bio, username: editForm.username.toLowerCase() })
       .eq("id", profile.id);
 
     if (!error) {
@@ -250,7 +264,20 @@ export default function ProfilePage() {
                   {profile.full_name || profile.username}
                 </h1>
               )}
-              <p className="text-muted-foreground text-sm">@{profile.username}</p>
+              {editing ? (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-muted-foreground text-sm">@</span>
+                  <input
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
+                    className="text-sm bg-transparent border-b border-border focus:outline-none focus:border-lime w-32"
+                    maxLength={20}
+                    minLength={3}
+                  />
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">@{profile.username}</p>
+              )}
               {editing ? (
                 <textarea
                   value={editForm.bio}
