@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ export default function LeaderboardPage() {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState<LeaderboardType>("xp");
+  const router = useRouter();
 
   useEffect(() => {
     const supabase = createClient();
@@ -125,8 +127,9 @@ export default function LeaderboardPage() {
               return (
                 <div
                   key={player.id}
-                  className={`flex items-center gap-4 px-5 py-4 transition-colors ${isMe ? "bg-lime/5" : "hover:bg-muted/30"
+                  className={`flex items-center gap-4 px-5 py-4 transition-colors cursor-pointer ${isMe ? "bg-lime/5" : "hover:bg-muted/30"
                     }`}
+                  onClick={() => !isMe && router.push(`/profile/${player.username}`)}
                 >
                   {/* Rank */}
                   <div className="w-8 text-center shrink-0">
