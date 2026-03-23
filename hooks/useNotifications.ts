@@ -60,13 +60,13 @@ export function useNotifications() {
         const { data, error } = await supabase
             .from("notifications")
             .select(`
-        *,
-        from_profile:profiles!notifications_from_user_id_fkey(
-          username,
-          full_name,
-          avatar_url
-        )
-      `)
+    *,
+    from_profile:profiles!from_user_id(
+      username,
+      full_name,
+      avatar_url
+    )
+  `)
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
             .limit(30);
@@ -105,6 +105,13 @@ export function useNotifications() {
                         const { data } = await supabase
                             .from("notifications")
                             .select(`
+    *,
+    from_profile:profiles!from_user_id(
+      username,
+      full_name,
+      avatar_url
+    )
+  
                 *,
                 from_profile:profiles!notifications_from_user_id_fkey(
                   username,
@@ -116,7 +123,7 @@ export function useNotifications() {
                             .single();
 
                         if (data) {
-                            setNotifications((prev) => [data as Notification, ...prev]);
+                            setNotifications((prev) => [data as unknown as Notification, ...prev]);
                             // Play sound for new notifications (not on first load)
                             if (!isFirstLoad.current) {
                                 playNotificationSound();
