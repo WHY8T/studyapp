@@ -3,14 +3,44 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatMinutes } from "@/lib/utils";
 import type { Profile } from "@/types";
 import { getLevelInfo as getLevelInfoFn } from "@/types";
-import { Trophy, Flame, Zap, Clock, Medal, Crown, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 type LeaderboardType = "xp" | "streak" | "study_time";
+
+// ── Avatar component — shows photo if available, else initials ────────────────
+function Avatar({ profile, size = 10, rank }: { profile: Profile; size?: number; rank: number }) {
+  const colors =
+    rank === 1 ? "#00b7ff" :
+      rank === 2 ? "#C0C0C0" :
+        rank === 3 ? "#CD7F32" : undefined;
+
+  if (profile.avatar_url) {
+    return (
+      <img
+        src={profile.avatar_url}
+        alt={profile.username}
+        className={`w-${size} h-${size} rounded-full object-cover shrink-0 border-2`}
+        style={{ borderColor: colors ?? "hsl(var(--border))" }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`w-${size} h-${size} rounded-full flex items-center justify-center font-bold text-sm shrink-0`}
+      style={{
+        background: colors ?? "hsl(var(--muted))",
+        color: rank <= 3 ? "#0D0D18" : "hsl(var(--foreground))",
+      }}
+    >
+      {profile.username.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
@@ -24,9 +54,11 @@ export default function LeaderboardPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
 
-      const orderCol = type === "xp" ? "xp" : type === "streak" ? "streak_current" : "total_study_minutes";
+      const orderCol =
+        type === "xp" ? "xp" :
+          type === "streak" ? "streak_current" :
+            "total_study_minutes";
 
-      // Get friend IDs
       const { data: friendships } = await supabase
         .from("friendships")
         .select("requester_id, addressee_id")
@@ -37,7 +69,6 @@ export default function LeaderboardPage() {
         f.requester_id === user.id ? f.addressee_id : f.requester_id
       );
 
-      // Include self
       const ids = [...friendIds, user.id];
 
       const [{ data: board }, { data: prof }] = await Promise.all([
@@ -49,6 +80,7 @@ export default function LeaderboardPage() {
           .limit(50),
         supabase.from("profiles").select("*").eq("id", user.id).single(),
       ]);
+
       setLeaderboard((board as Profile[]) ?? []);
       setCurrentUser(prof as Profile);
       setLoading(false);
@@ -56,11 +88,33 @@ export default function LeaderboardPage() {
   }, [type]);
 
   const myRank = leaderboard.findIndex((p) => p.id === currentUser?.id) + 1;
-
   const MEDALS = ["🥇", "🥈", "🥉"];
 
+  const getValue = (p: Profile) =>
+    type === "xp" ? p.xp.toLocaleString() :
+      type === "streak" ? p.streak_current :
+        formatMinutes(p.total_study_minutes);
+
+  const getUnit = () =>
+    type === "xp" ? "XP" :
+      type === "streak" ? "days" :
+        "studied";
+
+  // Clean display name — never show email
+  const displayName = (p: Profile, isMe: boolean) => {
+    if (isMe) return "You";
+    // if username looks like an email, show the part before @
+    if (p.username.includes("@")) return p.username.split("@")[0];
+    return p.username;
+  };
+
+  const displayHandle = (p: Profile) => {
+    if (p.username.includes("@")) return `@${p.username.split("@")[0]}`;
+    return `@${p.username}`;
+  };
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 px-2 sm:px-0">
       <div>
         <h1 className="font-display font-black text-2xl">Leaderboard</h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -74,7 +128,7 @@ export default function LeaderboardPage() {
           <button
             key={t}
             onClick={() => setType(t)}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all ${type === t ? "bg-lime text-[#0D0D18]" : "text-muted-foreground hover:text-foreground"
+            className={`flex-1 py-2 px-2 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all ${type === t ? "bg-lime text-[#0D0D18]" : "text-muted-foreground hover:text-foreground"
               }`}
           >
             {t === "xp" ? "⚡ XP" : t === "streak" ? "🔥 Streak" : "⏱ Study Time"}
@@ -82,35 +136,36 @@ export default function LeaderboardPage() {
         ))}
       </div>
 
-      {/* Your rank */}
+      {/* Your rank card — fully responsive */}
       {myRank > 0 && currentUser && (
         <Card className="border-lime/30 bg-lime/5">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="font-display font-black text-2xl text-lime">#{myRank}</div>
-            <div className="w-10 h-10 rounded-full bg-lime flex items-center justify-center text-[#0D0D18] font-bold">
-              {currentUser.username.slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold">You</p>
-              <p className="text-sm text-muted-foreground">@{currentUser.username}</p>
-            </div>
-            <div className="ml-auto text-right">
-              <p className="font-bold text-lime">
-                {type === "xp"
-                  ? `${currentUser.xp.toLocaleString()} XP`
-                  : type === "streak"
-                    ? `${currentUser.streak_current} days`
-                    : formatMinutes(currentUser.total_study_minutes)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Level {getLevelInfoFn(currentUser.xp).level}
-              </p>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="font-display font-black text-xl sm:text-2xl text-lime shrink-0">
+                #{myRank}
+              </div>
+              <Avatar profile={currentUser} size={10} rank={myRank} />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">You</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {displayHandle(currentUser)}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="font-bold text-lime text-sm sm:text-base">
+                  {getValue(currentUser)}
+                </p>
+                <p className="text-xs text-muted-foreground">{getUnit()}</p>
+                <p className="text-xs text-muted-foreground">
+                  Level {getLevelInfoFn(currentUser.xp).level}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Leaderboard */}
+      {/* Leaderboard list */}
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
@@ -127,57 +182,45 @@ export default function LeaderboardPage() {
               return (
                 <div
                   key={player.id}
-                  className={`flex items-center gap-4 px-5 py-4 transition-colors cursor-pointer ${isMe ? "bg-lime/5" : "hover:bg-muted/30"
+                  className={`flex items-center gap-3 px-4 py-3.5 transition-colors cursor-pointer ${isMe ? "bg-lime/5" : "hover:bg-muted/30"
                     }`}
                   onClick={() => !isMe && router.push(`/profile/${player.username}`)}
                 >
-                  {/* Rank */}
-                  <div className="w-8 text-center shrink-0">
+                  {/* Rank / medal */}
+                  <div className="w-7 text-center shrink-0">
                     {medal ? (
-                      <span className="text-xl">{medal}</span>
+                      <span className="text-lg">{medal}</span>
                     ) : (
-                      <span className="font-display font-bold text-muted-foreground text-sm">
+                      <span className="font-display font-bold text-muted-foreground text-xs">
                         #{rank}
                       </span>
                     )}
                   </div>
 
                   {/* Avatar */}
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
-                    style={{
-                      background: rank <= 3 ? ["#00b7ff", "#C0C0C0", "#CD7F32"][rank - 1] : "hsl(var(--muted))",
-                      color: rank === 1 ? "#0D0D18" : rank <= 3 ? "#0D0D18" : "hsl(var(--foreground))",
-                    }}
-                  >
-                    {player.username.slice(0, 2).toUpperCase()}
-                  </div>
+                  <Avatar profile={player} size={10} rank={rank} />
 
-                  {/* Name */}
+                  {/* Name + handle */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className={`font-semibold truncate ${isMe ? "text-lime" : ""}`}>
-                        {isMe ? "You" : player.username}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className={`font-semibold text-sm truncate ${isMe ? "text-lime" : ""}`}>
+                        {displayName(player, isMe)}
                       </p>
-                      <div className="level-badge text-[10px] px-1.5 py-0.5">
+                      <span className="level-badge text-[10px] px-1.5 py-0.5 shrink-0">
                         Lv.{levelInfo.level}
-                      </div>
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">@{player.username}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {displayHandle(player)}
+                    </p>
                   </div>
 
-                  {/* Value */}
-                  <div className="text-right shrink-0">
-                    <p className={`font-display font-bold ${rank === 1 ? "text-lime" : ""}`}>
-                      {type === "xp"
-                        ? `${player.xp.toLocaleString()}`
-                        : type === "streak"
-                          ? `${player.streak_current}`
-                          : formatMinutes(player.total_study_minutes)}
+                  {/* Score */}
+                  <div className="text-right shrink-0 ml-2">
+                    <p className={`font-display font-bold text-sm ${rank === 1 ? "text-lime" : ""}`}>
+                      {getValue(player)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {type === "xp" ? "XP" : type === "streak" ? "days" : "studied"}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{getUnit()}</p>
                   </div>
                 </div>
               );
