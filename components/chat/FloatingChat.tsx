@@ -43,17 +43,26 @@ function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number
 
     useEffect(() => {
         const audio = new Audio();
-        audio.crossOrigin = "anonymous";
-        audio.preload = "metadata";
-        audio.src = url;
+        audio.controls = false;
+        audio.preload = "auto";
+        // Try to force browser to load it properly
+        audio.src = url + "?t=" + Date.now(); // bust cache
         audioRef.current = audio;
+
+        audio.oncanplaythrough = () => setError(false);
         audio.onended = () => { setPlaying(false); setProgress(0); setCurrentTime(0); };
         audio.ontimeupdate = () => {
-            const d = audio.duration || duration || 1;
+            const d = audio.duration && isFinite(audio.duration) ? audio.duration : duration || 1;
             setCurrentTime(audio.currentTime);
             setProgress((audio.currentTime / d) * 100);
         };
-        audio.onerror = () => setError(true);
+        audio.onerror = (e) => {
+            console.error("Audio error:", audio.error?.code, audio.error?.message);
+            setError(true);
+        };
+
+        audio.load(); // force load
+
         return () => { audio.pause(); audio.src = ""; };
     }, [url]);
 
@@ -349,7 +358,7 @@ export default function FloatingChat() {
                                         {sendingStudyInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Timer className="w-4 h-4" />}
                                     </button>
                                     <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                                        <X className="w-4 h-4" />
+                                        <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
                                 </div>
 
@@ -455,7 +464,9 @@ export default function FloatingChat() {
                             <>
                                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 shrink-0">
                                     <p className="font-display font-bold text-base">Messages</p>
-                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"><X className="w-4 h-4" /></button>
+                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                        <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
+                                    </button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto divide-y divide-border/50">
                                     {friends.length === 0 ? (
@@ -489,14 +500,16 @@ export default function FloatingChat() {
                     <div className="fixed inset-0 z-40 sm:hidden" onClick={() => { if (!selectedFriend) setOpen(false); }} />
                 </>
             )}
-            <button onClick={() => setOpen((p) => !p)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-lime flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-transform">
-                {open ? <X className="w-6 h-6 text-[#0D0D18]" /> : <MessageCircle className="w-6 h-6 text-[#0D0D18]" />}
-                {!open && unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold shadow-lg">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                )}
-            </button>
+            {!open && (
+                <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-lime flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-transform">
+                    <MessageCircle className="w-6 h-6 text-[#0D0D18]" />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold shadow-lg">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                    )}
+                </button>
+            )}
         </>
     );
 }
