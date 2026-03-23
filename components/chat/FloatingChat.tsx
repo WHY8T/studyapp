@@ -43,26 +43,24 @@ function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number
 
     useEffect(() => {
         const audio = new Audio();
-        audio.controls = false;
         audio.preload = "auto";
-        // Try to force browser to load it properly
-        audio.src = url + "?t=" + Date.now(); // bust cache
+        audio.src = url;
         audioRef.current = audio;
-
-        audio.oncanplaythrough = () => setError(false);
         audio.onended = () => { setPlaying(false); setProgress(0); setCurrentTime(0); };
         audio.ontimeupdate = () => {
             const d = audio.duration && isFinite(audio.duration) ? audio.duration : duration || 1;
             setCurrentTime(audio.currentTime);
             setProgress((audio.currentTime / d) * 100);
         };
-        audio.onerror = (e) => {
-            console.error("Audio error:", audio.error?.code, audio.error?.message);
-            setError(true);
+        audio.onerror = () => {
+            if (!audio.src.includes("?retry")) {
+                audio.src = url + "?retry=1";
+                audio.load();
+            } else {
+                setError(true);
+            }
         };
-
-        audio.load(); // force load
-
+        audio.load();
         return () => { audio.pause(); audio.src = ""; };
     }, [url]);
 
@@ -256,18 +254,17 @@ export default function FloatingChat() {
         setUploadingImage(false); e.target.value = "";
     };
 
+    // FIX: Prioritize audio/mp4 for Safari iOS compatibility
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // AFTER
-            const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-                ? "audio/webm;codecs=opus"
-                : MediaRecorder.isTypeSupported("audio/webm")
-                    ? "audio/webm"
-                    : MediaRecorder.isTypeSupported("audio/mp4")
-                        ? "audio/mp4"
+            const mimeType = MediaRecorder.isTypeSupported("audio/mp4")
+                ? "audio/mp4"
+                : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+                    ? "audio/webm;codecs=opus"
+                    : MediaRecorder.isTypeSupported("audio/webm")
+                        ? "audio/webm"
                         : "";
-
             const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
             audioChunksRef.current = [];
             recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
@@ -277,6 +274,7 @@ export default function FloatingChat() {
         } catch { toast({ title: "Microphone access denied", variant: "destructive" }); }
     };
 
+    // FIX: Upload with correct contentType so Safari can play it back
     const stopRecording = async () => {
         if (!mediaRecorderRef.current || !currentUser || !selectedFriend) return;
         setRecording(false);
@@ -289,11 +287,13 @@ export default function FloatingChat() {
         });
         if (duration < 1) return;
         setUploadingVoice(true);
-        const mimeType = audioChunksRef.current[0]?.type || "audio/webm";
+        const mimeType = audioChunksRef.current[0]?.type || "audio/mp4";
         const ext = mimeType.includes("mp4") ? "mp4" : "webm";
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const path = `${currentUser.id}/voice_${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from("chat-media").upload(path, blob);
+        const { error } = await supabase.storage.from("chat-media").upload(path, blob, {
+            contentType: mimeType,
+        });
         if (error) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingVoice(false); return; }
         const { data: { publicUrl } } = supabase.storage.from("chat-media").getPublicUrl(path);
         await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration });
@@ -339,6 +339,7 @@ export default function FloatingChat() {
                     <div className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[340px] sm:h-[560px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden">
                         {selectedFriend ? (
                             <>
+                                {/* FIX: X button removed, close is now a small chevron-down */}
                                 <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm shrink-0">
                                     <button onClick={() => setSelectedFriend(null)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5" />
@@ -357,6 +358,7 @@ export default function FloatingChat() {
                                     <button onClick={sendStudyInvite} disabled={sendingStudyInvite || !!studyRoom} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-lime transition-colors disabled:opacity-40">
                                         {sendingStudyInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Timer className="w-4 h-4" />}
                                     </button>
+                                    {/* Small chevron-down to close chat instead of big X */}
                                     <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
@@ -464,6 +466,7 @@ export default function FloatingChat() {
                             <>
                                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 shrink-0">
                                     <p className="font-display font-bold text-base">Messages</p>
+                                    {/* Small chevron-down to close */}
                                     <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
@@ -500,6 +503,8 @@ export default function FloatingChat() {
                     <div className="fixed inset-0 z-40 sm:hidden" onClick={() => { if (!selectedFriend) setOpen(false); }} />
                 </>
             )}
+
+            {/* FIX: Floating button only shows when chat is closed — no more big X covering the chat */}
             {!open && (
                 <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-lime flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-transform">
                     <MessageCircle className="w-6 h-6 text-[#0D0D18]" />
