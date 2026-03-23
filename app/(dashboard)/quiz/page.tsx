@@ -26,10 +26,10 @@ interface Question {
 }
 
 const DIFFICULTY_CONFIG = {
-  easy: { label: "Easy", color: "text-green-400", bg: "bg-green-400/10 border-green-400/30", active: "bg-green-400 text-[#0D0D18]", emoji: "🟢" },
-  medium: { label: "Medium", color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/30", active: "bg-yellow-400 text-[#0D0D18]", emoji: "🟡" },
-  hard: { label: "Hard", color: "text-red-400", bg: "bg-red-400/10 border-red-400/30", active: "bg-red-400 text-[#0D0D18]", emoji: "🔴" },
-  mixed: { label: "Mixed", color: "text-[#00b7ff]", bg: "bg-[#00b7ff]/10 border-[#00b7ff]/30", active: "bg-[#00b7ff] text-[#0D0D18]", emoji: "🎯" },
+  easy: { label: "Easy", color: "text-green-400", bg: "bg-green-400/10 border-green-400/30", active: "bg-green-400 text-[#0D0D18]", emoji: "" },
+  medium: { label: "Medium", color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/30", active: "bg-yellow-400 text-[#0D0D18]", emoji: "" },
+  hard: { label: "Hard", color: "text-red-400", bg: "bg-red-400/10 border-red-400/30", active: "bg-red-400 text-[#0D0D18]", emoji: "" },
+  mixed: { label: "Mixed", color: "text-[#00b7ff]", bg: "bg-[#00b7ff]/10 border-[#00b7ff]/30", active: "bg-[#00b7ff] text-[#0D0D18]", emoji: "" },
 };
 
 const QUESTION_COUNTS = [5, 10, 15, 20];
