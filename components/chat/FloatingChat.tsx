@@ -474,8 +474,7 @@ export default function FloatingChat() {
                 <>
                     {reactingTo && <div className="fixed inset-0 z-[60]" onClick={() => setReactingTo(null)} />}
 
-                    <div className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:bottom-24 sm:right-6 // AFTER
-sm:w-[420px] sm:h-[calc(100vh-120px)] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden">
+                    <div className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden">
                         {selectedFriend ? (
                             <>
                                 <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm shrink-0">
