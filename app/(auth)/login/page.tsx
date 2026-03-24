@@ -45,9 +45,9 @@ function LoginForm() {
     <div className="space-y-8">
       <div className="flex items-center gap-3 lg:hidden">
         <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center">
-          <span className="font-display font-black text-[#0D0D18] text-base">S</span>
+          <span className="font-display font-black text-[#0D0D18] text-base">N</span>
         </div>
-        <span className="font-display font-bold text-xl">StudyFlow</span>
+        <span className="font-display font-bold text-xl">Nahda.Edu</span>
       </div>
       <div className="space-y-2">
         <h1 className="font-display font-black text-3xl">Welcome back</h1>
@@ -76,7 +76,7 @@ function LoginForm() {
         </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground">
-        New to StudyFlow?{" "}
+        New to Nahda.Edu?{" "}
         <Link href="/register" className="font-semibold text-lime hover:text-lime-300 transition-colors">Create your account →</Link>
       </p>
       <div className="rounded-xl border border-lime/20 bg-lime/5 p-4 flex items-center gap-3">

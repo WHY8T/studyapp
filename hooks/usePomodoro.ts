@@ -14,14 +14,14 @@ const DEFAULT_SETTINGS: PomodoroSettings = {
   soundEnabled: true,
 };
 
-const PERSIST_KEY = "studyflow:pomodoro-state";
+const PERSIST_KEY = "nahda-edu:pomodoro-state";
 
 interface PersistedState {
   phase: PomodoroPhase;
   secondsLeft: number;
   sessionCount: number;
   isRunning: boolean;
-  savedAt: number; // timestamp when we saved
+  savedAt: number;
 }
 
 function loadPersistedState(): PersistedState | null {
@@ -30,7 +30,6 @@ function loadPersistedState(): PersistedState | null {
     const raw = localStorage.getItem(PERSIST_KEY);
     if (!raw) return null;
     const state: PersistedState = JSON.parse(raw);
-    // If it was running, calculate how many seconds passed while away
     if (state.isRunning && state.savedAt) {
       const elapsed = Math.floor((Date.now() - state.savedAt) / 1000);
       state.secondsLeft = Math.max(0, state.secondsLeft - elapsed);
@@ -64,7 +63,6 @@ export function usePomodoro({
 }: UsePomodoroOptions = {}) {
   const settings = { ...DEFAULT_SETTINGS, ...settingsOverride };
 
-  // Load persisted state on first render
   const persisted = typeof window !== "undefined" ? loadPersistedState() : null;
 
   const [phase, setPhase] = useState<PomodoroPhase>(persisted?.phase ?? "work");
@@ -87,18 +85,10 @@ export function usePomodoro({
   settingsRef.current = settings;
   secondsLeftRef.current = secondsLeft;
 
-  // ── Persist state whenever it changes ──────────────────────
   useEffect(() => {
-    saveState({
-      phase,
-      secondsLeft,
-      sessionCount,
-      isRunning,
-      savedAt: Date.now(),
-    });
+    saveState({ phase, secondsLeft, sessionCount, isRunning, savedAt: Date.now() });
   }, [phase, secondsLeft, sessionCount, isRunning]);
 
-  // ── Save on page unload/navigation ─────────────────────────
   useEffect(() => {
     const handleUnload = () => {
       saveState({
@@ -110,21 +100,18 @@ export function usePomodoro({
       });
     };
     window.addEventListener("beforeunload", handleUnload);
-    // Also save on visibility change (mobile navigation)
     document.addEventListener("visibilitychange", handleUnload);
     return () => {
       window.removeEventListener("beforeunload", handleUnload);
       document.removeEventListener("visibilitychange", handleUnload);
-      handleUnload(); // save on component unmount (route change)
+      handleUnload();
     };
   }, [isRunning]);
 
-  // ── Utilities ───────────────────────────────────────────────
   const playSound = useCallback((type: "work" | "break") => {
     if (!settingsRef.current.soundEnabled) return;
     try {
-      const AudioCtx =
-        (window as any).webkitAudioContext ?? window.AudioContext;
+      const AudioCtx = (window as any).webkitAudioContext ?? window.AudioContext;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -151,7 +138,6 @@ export function usePomodoro({
     }
   }, []);
 
-  // ── Advance to next phase ───────────────────────────────────
   const advance = useCallback((isSkip: boolean) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setIsRunning(false);
@@ -194,7 +180,6 @@ export function usePomodoro({
     }
   }, [onSessionComplete, playSound, sendNotification]);
 
-  // ── Countdown interval ──────────────────────────────────────
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -215,7 +200,6 @@ export function usePomodoro({
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRunning, advance]);
 
-  // ── Public API ──────────────────────────────────────────────
   const start = useCallback(() => {
     requestNotificationPermission();
     setIsRunning(true);

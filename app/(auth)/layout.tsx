@@ -5,7 +5,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#0A0A14] flex-col justify-between p-12">
         {/* Grid background */}
         <div className="absolute inset-0 bg-grid opacity-50" />
-
         {/* Decorative glows */}
         <div
           className="absolute top-1/3 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl"
@@ -15,19 +14,17 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full opacity-15 blur-3xl"
           style={{ background: "radial-gradient(circle, #FF6B6B 0%, transparent 70%)" }}
         />
-
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-lime flex items-center justify-center">
-              <span className="font-display font-black text-[#0A0A14] text-lg">S</span>
+              <span className="font-display font-black text-[#0A0A14] text-lg">N</span>
             </div>
             <span className="font-display font-bold text-white text-xl tracking-tight">
-              StudyFlow
+              Nahda.Edu
             </span>
           </div>
         </div>
-
         {/* Hero text */}
         <div className="relative z-10 space-y-6">
           <div className="space-y-2">
@@ -45,7 +42,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="text-white/60 text-lg leading-relaxed max-w-sm">
             The productivity platform that turns studying into an adventure. Earn XP, build streaks, and conquer your exams.
           </p>
-
           {/* Social proof */}
           <div className="flex items-center gap-4 pt-2">
             <div className="flex -space-x-2">
@@ -62,7 +58,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </p>
           </div>
         </div>
-
         {/* Stats */}
         <div className="relative z-10 grid grid-cols-3 gap-4">
           {[
@@ -77,7 +72,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           ))}
         </div>
       </div>
-
       {/* Right panel - form */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">{children}</div>

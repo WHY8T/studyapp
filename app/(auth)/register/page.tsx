@@ -48,7 +48,6 @@ export default function RegisterPage() {
 
     const supabase = createClient();
 
-    // Check username availability safely
     const { data: existing, error: usernameError } = await supabase
       .from("profiles")
       .select("username")
@@ -75,7 +74,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // Signup
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -107,7 +105,7 @@ export default function RegisterPage() {
 
     if (data.session) {
       toast({
-        title: "Welcome to StudyFlow! ",
+        title: "Welcome to Nahda.Edu! 🎓",
         description: "Your journey begins now. +100 XP for joining!",
       });
       router.push("/dashboard");
@@ -124,7 +122,6 @@ export default function RegisterPage() {
         <div className="w-20 h-20 mx-auto rounded-3xl bg-lime/10 flex items-center justify-center">
           <MailCheck className="w-10 h-10 text-lime" />
         </div>
-
         <div className="space-y-2">
           <h1 className="font-display font-black text-2xl">Check your email</h1>
           <p className="text-muted-foreground">
@@ -132,7 +129,6 @@ export default function RegisterPage() {
             <span className="text-foreground font-semibold">{sentTo}</span>
           </p>
         </div>
-
         <Link href="/login" className="text-sm text-muted-foreground">
           Already confirmed? Sign in →
         </Link>
@@ -172,7 +168,6 @@ export default function RegisterPage() {
           onChange={(e) => setForm({ ...form, fullName: e.target.value })}
           required
         />
-
         <Input
           placeholder="Username"
           value={form.username}
@@ -184,7 +179,6 @@ export default function RegisterPage() {
           }
           required
         />
-
         <Input
           type="email"
           placeholder="Email"
@@ -192,7 +186,6 @@ export default function RegisterPage() {
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           required
         />
-
         <Input
           type="password"
           placeholder="Password"
@@ -200,7 +193,6 @@ export default function RegisterPage() {
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           required
         />
-
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? <Loader2 className="animate-spin" /> : "Create account"}
         </Button>

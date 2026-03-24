@@ -22,7 +22,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudyFlow",
+  title: "Nahda.Edu",
   description: "Your modern student productivity platform",
 };
 

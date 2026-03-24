@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -56,7 +55,6 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
   const { hm, hms } = useClockTime();
   const levelInfo = profile ? getLevelInfo(profile.xp) : null;
 
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setClockOpen(false); };
     window.addEventListener("keydown", onKey);
@@ -76,10 +74,10 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
         <div className="p-6 border-b border-border flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-3 group" onClick={onClose}>
             <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center transition-transform group-hover:scale-110">
-              <span className="font-display font-black text-[#0D0D18] text-base">S</span>
+              <span className="font-display font-black text-[#0D0D18] text-base">N</span>
             </div>
             <div>
-              <p className="font-display font-black text-base leading-none">StudyFlow</p>
+              <p className="font-display font-black text-base leading-none">Nahda.Edu</p>
               <p className="text-xs text-muted-foreground mt-0.5">Level up your studies</p>
             </div>
           </Link>

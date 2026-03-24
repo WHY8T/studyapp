@@ -60,9 +60,9 @@ export default function LandingPage() {
       <nav className="flex items-center justify-between px-8 py-5 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center">
-            <span className="font-display font-black text-[#0D0D18] text-base">S</span>
+            <span className="font-display font-black text-[#0D0D18] text-base">N</span>
           </div>
-          <span className="font-display font-bold text-xl">StudyFlow</span>
+          <span className="font-display font-bold text-xl">Nahda.Edu</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login">
@@ -78,28 +78,23 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="relative px-8 pt-16 pb-24 max-w-7xl mx-auto text-center">
-        {/* Background decorations */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full opacity-10 blur-3xl"
           style={{ background: "radial-gradient(circle, #00b7ff 0%, transparent 70%)" }}
         />
-
         <div className="relative z-10 space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-lime/30 bg-lime/10 text-lime text-sm font-semibold">
             <Zap className="w-4 h-4" />
             Study. Earn XP. Level Up. Repeat.
           </div>
-
           <h1 className="font-display font-black text-6xl lg:text-8xl leading-none tracking-tight">
             Study Smarter.
             <br />
             <span className="text-gradient-lime">Level Up.</span>
           </h1>
-
           <p className="text-white/60 text-xl max-w-2xl mx-auto leading-relaxed">
             The only productivity platform that makes studying addictive. Pomodoro sessions, AI quizzes,
             real-time leaderboards, and a friends system built for students.
           </p>
-
           <div className="flex items-center justify-center gap-4 pt-2">
             <Link href="/register">
               <Button size="xl" className="text-base shadow-xl shadow-lime/20">
@@ -113,7 +108,6 @@ export default function LandingPage() {
               </Button>
             </Link>
           </div>
-
           {/* Social proof */}
           <div className="flex items-center justify-center gap-6 pt-4">
             <div className="flex -space-x-2">
@@ -162,7 +156,6 @@ export default function LandingPage() {
             Every feature designed to keep you motivated, organized, and making progress.
           </p>
         </div>
-
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature) => (
             <div
@@ -212,18 +205,15 @@ export default function LandingPage() {
       <footer className="border-t border-white/10 px-8 py-10 text-center space-y-4">
         <div className="flex items-center justify-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-lime flex items-center justify-center">
-            <span className="font-display font-black text-[#0D0D18] text-sm">S</span>
+            <span className="font-display font-black text-[#0D0D18] text-sm">N</span>
           </div>
-          <span className="font-display font-bold">StudyFlow</span>
+          <span className="font-display font-bold">Nahda.Edu</span>
         </div>
-
-        <p className="text-white/30 text-sm">© 2025 StudyFlow. Built for students, by students.</p>
-
-        {/* Made by credit */}
+        <p className="text-white/30 text-sm">© 2025 Nahda.Edu. Built for students, by students.</p>
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5">
           <Code2 className="w-3.5 h-3.5 text-lime" />
           <span className="text-white/50 text-xs">
-            Designed & built by{"ghoubali abdelwaheb"}
+            Designed & built by{" "}
             <span className="text-lime font-semibold">Ghoubali Abdelwaheb</span>
             {" "}— a student, for students 🎓
           </span>

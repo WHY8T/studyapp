@@ -825,4 +825,4 @@ export default function FloatingChat() {
             )}
         </>
     );
-}
+} 
