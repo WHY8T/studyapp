@@ -346,7 +346,10 @@ export default function FloatingChat() {
 
     const handleReact = async (messageId: string, emoji: string) => {
         if (!currentUser) return;
+        // Prevent reacting to unsaved optimistic messages
+        if (messageId.includes(".")) { setReactingTo(null); return; }
         setReactingTo(null);
+        // ... rest of function
         const msg = messages.find((m) => m.id === messageId);
         const existing = msg?.reactions?.find((r) => r.emoji === emoji && r.reacted);
 
@@ -363,7 +366,11 @@ export default function FloatingChat() {
                 };
             }));
         } else {
-            await supabase.from("message_reactions").upsert({ message_id: messageId, user_id: currentUser.id, emoji });
+            // AFTER
+            await supabase.from("message_reactions").upsert(
+                { message_id: messageId, user_id: currentUser.id, emoji },
+                { onConflict: "message_id,user_id,emoji" }
+            );
             setMessages((prev) => prev.map((m) => {
                 if (m.id !== messageId) return m;
                 const ex = (m.reactions ?? []).find((r) => r.emoji === emoji);
