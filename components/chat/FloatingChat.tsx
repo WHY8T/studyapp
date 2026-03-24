@@ -8,8 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import type { Profile } from "@/types";
 import {
     MessageCircle, X, Send, ChevronLeft, Timer, Loader2,
-    Check, CheckCheck, Mic, ImagePlus, Play, Pause, StopCircle,
+    Check, CheckCheck, Mic, ImagePlus, Play, Pause, StopCircle, CornerUpLeft,
 } from "lucide-react";
+
+interface Reaction {
+    emoji: string;
+    count: number;
+    reacted: boolean;
+}
 
 interface Message {
     id: string;
@@ -21,6 +27,9 @@ interface Message {
     duration_seconds?: number;
     read: boolean;
     created_at: string;
+    reply_to_id?: string;
+    reply_to?: Message;
+    reactions?: Reaction[];
 }
 
 interface StudyRoom {
@@ -32,6 +41,8 @@ interface StudyRoom {
     started_at: string | null;
     ends_at: string | null;
 }
+
+const EMOJI_OPTIONS = ["❤️", "😂", "😮", "😢", "👍", "🔥"];
 
 // ─── Voice Player ─────────────────────────────────────────────────────────────
 function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number; isMine: boolean }) {
@@ -73,7 +84,6 @@ function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number
     };
 
     const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
-
     if (error) return <p className="text-xs opacity-60">🎤 Voice message (unsupported)</p>;
 
     return (
@@ -91,6 +101,25 @@ function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number
     );
 }
 
+// ─── Reply Preview ────────────────────────────────────────────────────────────
+function ReplyPreview({ msg, senderName, onCancel }: { msg: Message; senderName: string; onCancel?: () => void }) {
+    return (
+        <div className={`flex items-start gap-2 px-3 py-1.5 rounded-xl border-l-2 border-lime bg-lime/10 ${onCancel ? "mb-2" : "mb-1 opacity-80"}`}>
+            <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-lime truncate">{senderName}</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                    {msg.type === "voice" ? "🎤 Voice message" : msg.type === "image" ? "🖼️ Image" : msg.content}
+                </p>
+            </div>
+            {onCancel && (
+                <button onClick={onCancel} className="shrink-0 text-muted-foreground hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                </button>
+            )}
+        </div>
+    );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function FloatingChat() {
     const { toast } = useToast();
@@ -103,6 +132,7 @@ export default function FloatingChat() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [unreadCount, setUnreadCount] = useState(0);
+    const [unreadSenders, setUnreadSenders] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [studyRoom, setStudyRoom] = useState<StudyRoom | null>(null);
     const [timeLeft, setTimeLeft] = useState(0);
@@ -111,6 +141,8 @@ export default function FloatingChat() {
     const [recordingSeconds, setRecordingSeconds] = useState(0);
     const [uploadingVoice, setUploadingVoice] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [replyTo, setReplyTo] = useState<Message | null>(null);
+    const [reactingTo, setReactingTo] = useState<string | null>(null);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
@@ -136,30 +168,63 @@ export default function FloatingChat() {
             if (friendIds.length === 0) return;
 
             const { data: profiles } = await supabase.from("profiles").select("*").in("id", friendIds);
-            setFriends((profiles as Profile[]) ?? []);
+            const friendsList = (profiles as Profile[]) ?? [];
+            setFriends(friendsList);
 
-            const { count } = await supabase.from("messages")
-                .select("*", { count: "exact", head: true })
-                .eq("receiver_id", user.id).eq("read", false);
-            setUnreadCount(count ?? 0);
+            const { data: unread } = await supabase.from("messages")
+                .select("sender_id").eq("receiver_id", user.id).eq("read", false);
+            if (unread) {
+                setUnreadCount(unread.length);
+                const senderIds = [...new Set(unread.map((m) => m.sender_id))];
+                const senderProfiles = friendsList.filter((p) => senderIds.includes(p.id));
+                setUnreadSenders(senderProfiles.map((p) => p.username));
+            }
         };
         load();
     }, []);
+
+    const loadReactions = async (messageIds: string[]) => {
+        if (!messageIds.length || !currentUser) return {};
+        const { data } = await supabase.from("message_reactions").select("*").in("message_id", messageIds);
+        if (!data) return {};
+        const map: Record<string, Reaction[]> = {};
+        for (const row of data) {
+            if (!map[row.message_id]) map[row.message_id] = [];
+            const existing = map[row.message_id].find((r) => r.emoji === row.emoji);
+            if (existing) {
+                existing.count++;
+                if (row.user_id === currentUser.id) existing.reacted = true;
+            } else {
+                map[row.message_id].push({ emoji: row.emoji, count: 1, reacted: row.user_id === currentUser.id });
+            }
+        }
+        return map;
+    };
 
     useEffect(() => {
         if (!currentUser) return;
         const channel = supabase.channel(`chat:${currentUser.id}`)
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${currentUser.id}` },
-                (payload) => {
+                async (payload) => {
                     const msg = payload.new as Message;
                     if (selectedFriend?.id === msg.sender_id) {
-                        setMessages((prev) => [...prev, msg]);
+                        let fullMsg = { ...msg, reactions: [] as Reaction[] };
+                        if (msg.reply_to_id) {
+                            const { data: replied } = await supabase.from("messages").select("*").eq("id", msg.reply_to_id).single();
+                            if (replied) fullMsg.reply_to = replied as Message;
+                        }
+                        setMessages((prev) => [...prev, fullMsg]);
                         supabase.from("messages").update({ read: true }).eq("id", msg.id);
                     } else {
                         setUnreadCount((prev) => prev + 1);
+                        const sender = friends.find((f) => f.id === msg.sender_id);
+                        const senderName = sender?.username ?? "Someone";
+                        setUnreadSenders((prev) => prev.includes(senderName) ? prev : [...prev, senderName]);
                         playNotifSound();
-                        const name = friends.find((f) => f.id === msg.sender_id)?.username ?? "Friend";
-                        toast({ title: `💬 ${name}`, description: msg.type === "voice" ? "🎤 Voice message" : msg.type === "image" ? "🖼️ Image" : msg.content.slice(0, 60) });
+                        toast({
+                            title: `💬 ${senderName}`,
+                            description: msg.type === "voice" ? "🎤 Voice message" : msg.type === "image" ? "🖼️ Image" : msg.content.slice(0, 60),
+                        });
                     }
                 }).subscribe();
         return () => { supabase.removeChannel(channel); };
@@ -189,11 +254,29 @@ export default function FloatingChat() {
             const { data } = await supabase.from("messages").select("*")
                 .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${currentUser.id})`)
                 .order("created_at", { ascending: true }).limit(50);
-            setMessages((data as Message[]) ?? []);
+
+            const msgs = (data as Message[]) ?? [];
+            const replyIds = msgs.filter((m) => m.reply_to_id).map((m) => m.reply_to_id!);
+            let replyMap: Record<string, Message> = {};
+            if (replyIds.length) {
+                const { data: replies } = await supabase.from("messages").select("*").in("id", replyIds);
+                (replies ?? []).forEach((r) => { replyMap[r.id] = r as Message; });
+            }
+            const reactionMap = await loadReactions(msgs.map((m) => m.id));
+            const enriched = msgs.map((m) => ({
+                ...m,
+                reply_to: m.reply_to_id ? replyMap[m.reply_to_id] : undefined,
+                reactions: reactionMap[m.id] ?? [],
+            }));
+
+            setMessages(enriched);
             setLoading(false);
+
             await supabase.from("messages").update({ read: true })
                 .eq("sender_id", selectedFriend.id).eq("receiver_id", currentUser.id).eq("read", false);
             setUnreadCount((prev) => Math.max(0, prev - 1));
+            setUnreadSenders((prev) => prev.filter((s) => s !== selectedFriend.username));
+
             const { data: room } = await supabase.from("study_rooms").select("*")
                 .or(`and(host_id.eq.${currentUser.id},guest_id.eq.${selectedFriend.id}),and(host_id.eq.${selectedFriend.id},guest_id.eq.${currentUser.id})`)
                 .neq("status", "finished").maybeSingle();
@@ -215,7 +298,7 @@ export default function FloatingChat() {
             gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
             osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
-        } catch { /* ignore */ }
+        } catch { }
     };
 
     const startTimer = (room: StudyRoom) => {
@@ -233,9 +316,61 @@ export default function FloatingChat() {
 
     const sendMessage = async () => {
         if (!newMessage.trim() || !currentUser || !selectedFriend) return;
-        const content = newMessage.trim(); setNewMessage("");
-        setMessages((prev) => [...prev, { id: Math.random().toString(), sender_id: currentUser.id, receiver_id: selectedFriend.id, content, type: "text", read: false, created_at: new Date().toISOString() }]);
-        await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content, type: "text" });
+        const content = newMessage.trim();
+        setNewMessage("");
+        const replyId = replyTo?.id;
+        const replyMsg = replyTo;
+        setReplyTo(null);
+
+        const optimistic: Message = {
+            id: Math.random().toString(),
+            sender_id: currentUser.id,
+            receiver_id: selectedFriend.id,
+            content,
+            type: "text",
+            read: false,
+            created_at: new Date().toISOString(),
+            reply_to_id: replyId,
+            reply_to: replyMsg ?? undefined,
+            reactions: [],
+        };
+        setMessages((prev) => [...prev, optimistic]);
+        await supabase.from("messages").insert({
+            sender_id: currentUser.id,
+            receiver_id: selectedFriend.id,
+            content,
+            type: "text",
+            reply_to_id: replyId ?? null,
+        });
+    };
+
+    const handleReact = async (messageId: string, emoji: string) => {
+        if (!currentUser) return;
+        setReactingTo(null);
+        const msg = messages.find((m) => m.id === messageId);
+        const existing = msg?.reactions?.find((r) => r.emoji === emoji && r.reacted);
+
+        if (existing) {
+            await supabase.from("message_reactions").delete()
+                .eq("message_id", messageId).eq("user_id", currentUser.id).eq("emoji", emoji);
+            setMessages((prev) => prev.map((m) => {
+                if (m.id !== messageId) return m;
+                return {
+                    ...m,
+                    reactions: (m.reactions ?? [])
+                        .map((r) => r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r)
+                        .filter((r) => r.count > 0),
+                };
+            }));
+        } else {
+            await supabase.from("message_reactions").upsert({ message_id: messageId, user_id: currentUser.id, emoji });
+            setMessages((prev) => prev.map((m) => {
+                if (m.id !== messageId) return m;
+                const ex = (m.reactions ?? []).find((r) => r.emoji === emoji);
+                if (ex) return { ...m, reactions: (m.reactions ?? []).map((r) => r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r) };
+                return { ...m, reactions: [...(m.reactions ?? []), { emoji, count: 1, reacted: true }] };
+            }));
+        }
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,22 +384,18 @@ export default function FloatingChat() {
         const { error: err } = await supabase.storage.from("chat-media").upload(path, file);
         if (err) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingImage(false); return; }
         const { data: { publicUrl } } = supabase.storage.from("chat-media").getPublicUrl(path);
-        await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "image", media_url: publicUrl });
-        setMessages((prev) => [...prev, { id: Math.random().toString(), sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "image", media_url: publicUrl, read: false, created_at: new Date().toISOString() }]);
+        await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "image", media_url: publicUrl, reply_to_id: replyTo?.id ?? null });
+        setMessages((prev) => [...prev, { id: Math.random().toString(), sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "image", media_url: publicUrl, read: false, created_at: new Date().toISOString(), reply_to: replyTo ?? undefined, reactions: [] }]);
+        setReplyTo(null);
         setUploadingImage(false); e.target.value = "";
     };
 
-    // FIX: Prioritize audio/mp4 for Safari iOS compatibility
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mimeType = MediaRecorder.isTypeSupported("audio/mp4")
-                ? "audio/mp4"
-                : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-                    ? "audio/webm;codecs=opus"
-                    : MediaRecorder.isTypeSupported("audio/webm")
-                        ? "audio/webm"
-                        : "";
+            const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4"
+                : MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
+                    : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
             const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
             audioChunksRef.current = [];
             recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
@@ -274,7 +405,6 @@ export default function FloatingChat() {
         } catch { toast({ title: "Microphone access denied", variant: "destructive" }); }
     };
 
-    // FIX: Upload with correct contentType so Safari can play it back
     const stopRecording = async () => {
         if (!mediaRecorderRef.current || !currentUser || !selectedFriend) return;
         setRecording(false);
@@ -291,13 +421,12 @@ export default function FloatingChat() {
         const ext = mimeType.includes("mp4") ? "mp4" : "webm";
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const path = `${currentUser.id}/voice_${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from("chat-media").upload(path, blob, {
-            contentType: mimeType,
-        });
+        const { error } = await supabase.storage.from("chat-media").upload(path, blob, { contentType: mimeType });
         if (error) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingVoice(false); return; }
         const { data: { publicUrl } } = supabase.storage.from("chat-media").getPublicUrl(path);
-        await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration });
-        setMessages((prev) => [...prev, { id: Math.random().toString(), sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration, read: false, created_at: new Date().toISOString() }]);
+        await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration, reply_to_id: replyTo?.id ?? null });
+        setMessages((prev) => [...prev, { id: Math.random().toString(), sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration, read: false, created_at: new Date().toISOString(), reply_to: replyTo ?? undefined, reactions: [] }]);
+        setReplyTo(null);
         setUploadingVoice(false); setRecordingSeconds(0);
     };
 
@@ -336,12 +465,14 @@ export default function FloatingChat() {
         <>
             {open && (
                 <>
-                    <div className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[340px] sm:h-[560px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden">
+                    {reactingTo && <div className="fixed inset-0 z-[60]" onClick={() => setReactingTo(null)} />}
+
+                    <div className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:bottom-24 sm:right-6 // AFTER
+sm:w-[420px] sm:h-[calc(100vh-120px)] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden">
                         {selectedFriend ? (
                             <>
-                                {/* FIX: X button removed, close is now a small chevron-down */}
                                 <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm shrink-0">
-                                    <button onClick={() => setSelectedFriend(null)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                    <button onClick={() => { setSelectedFriend(null); setReplyTo(null); }} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5" />
                                     </button>
                                     {selectedFriend.avatar_url ? (
@@ -358,7 +489,6 @@ export default function FloatingChat() {
                                     <button onClick={sendStudyInvite} disabled={sendingStudyInvite || !!studyRoom} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-lime transition-colors disabled:opacity-40">
                                         {sendingStudyInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Timer className="w-4 h-4" />}
                                     </button>
-                                    {/* Small chevron-down to close chat instead of big X */}
                                     <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
@@ -383,7 +513,8 @@ export default function FloatingChat() {
                                     </div>
                                 )}
 
-                                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+                                {/* Messages area */}
+                                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5" onClick={() => setReactingTo(null)}>
                                     {loading ? (
                                         <div className="flex justify-center py-12"><Loader2 className="animate-spin w-5 h-5 text-muted-foreground" /></div>
                                     ) : messages.length === 0 ? (
@@ -398,6 +529,10 @@ export default function FloatingChat() {
                                                 const isMine = msg.sender_id === currentUser?.id;
                                                 const prev = messages[i - 1];
                                                 const showTime = !prev || new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000;
+                                                const replyAuthorName = msg.reply_to
+                                                    ? msg.reply_to.sender_id === currentUser?.id ? "You" : selectedFriend.username
+                                                    : "";
+
                                                 return (
                                                     <div key={msg.id}>
                                                         {showTime && (
@@ -407,19 +542,72 @@ export default function FloatingChat() {
                                                                 </span>
                                                             </div>
                                                         )}
-                                                        <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                                                            <div className={`relative max-w-[75%] px-3 py-2 text-sm leading-relaxed ${isMine ? "bg-lime text-[#0D0D18] rounded-2xl rounded-br-sm" : "bg-muted text-foreground rounded-2xl rounded-bl-sm"}`}>
-                                                                {msg.type === "text" && <span>{msg.content}</span>}
-                                                                {msg.type === "image" && msg.media_url && (
-                                                                    <img src={msg.media_url} alt="Image" className="rounded-xl max-w-[220px] max-h-[200px] object-cover cursor-pointer" onClick={() => window.open(msg.media_url, "_blank")} />
+                                                        <div className={`flex ${isMine ? "justify-end" : "justify-start"} group relative`}>
+                                                            {/* Reply button on hover */}
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setReplyTo(msg); setTimeout(() => inputRef.current?.focus(), 50); }}
+                                                                className={`absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full bg-muted hover:bg-muted/80 z-10 ${isMine ? "left-0 -translate-x-6" : "right-0 translate-x-6"}`}
+                                                            >
+                                                                <CornerUpLeft className="w-3 h-3 text-muted-foreground" />
+                                                            </button>
+
+                                                            <div className="max-w-[75%] relative">
+                                                                {/* Reply preview inside bubble */}
+                                                                {msg.reply_to && (
+                                                                    <ReplyPreview msg={msg.reply_to} senderName={replyAuthorName} />
                                                                 )}
-                                                                {msg.type === "voice" && msg.media_url && (
-                                                                    <VoicePlayer url={msg.media_url} duration={msg.duration_seconds} isMine={isMine} />
+
+                                                                {/* Message bubble — tap to react */}
+                                                                <div
+                                                                    className={`relative px-3 py-2 text-sm leading-relaxed cursor-pointer select-none ${isMine ? "bg-lime text-[#0D0D18] rounded-2xl rounded-br-sm" : "bg-muted text-foreground rounded-2xl rounded-bl-sm"}`}
+                                                                    onClick={(e) => { e.stopPropagation(); setReactingTo(reactingTo === msg.id ? null : msg.id); }}
+                                                                >
+                                                                    {msg.type === "text" && <span>{msg.content}</span>}
+                                                                    {msg.type === "image" && msg.media_url && (
+                                                                        <img src={msg.media_url} alt="Image" className="rounded-xl max-w-[220px] max-h-[200px] object-cover" onClick={(e) => { e.stopPropagation(); window.open(msg.media_url, "_blank"); }} />
+                                                                    )}
+                                                                    {msg.type === "voice" && msg.media_url && (
+                                                                        <VoicePlayer url={msg.media_url} duration={msg.duration_seconds} isMine={isMine} />
+                                                                    )}
+                                                                    {isMine && msg.type === "text" && (
+                                                                        <span className="inline-flex ml-1.5 opacity-60 translate-y-[1px]">
+                                                                            {msg.read ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Emoji picker — appears above/below bubble */}
+                                                                {reactingTo === msg.id && (
+                                                                    <div
+                                                                        className={`absolute z-[70] flex gap-1 p-2 rounded-2xl bg-card border border-border shadow-xl -top-12 ${isMine ? "right-0" : "left-0"}`}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        {EMOJI_OPTIONS.map((emoji) => (
+                                                                            <button
+                                                                                key={emoji}
+                                                                                onClick={() => handleReact(msg.id, emoji)}
+                                                                                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-muted transition-colors text-lg"
+                                                                            >
+                                                                                {emoji}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
                                                                 )}
-                                                                {isMine && msg.type === "text" && (
-                                                                    <span className="inline-flex ml-1.5 opacity-60 translate-y-[1px]">
-                                                                        {msg.read ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />}
-                                                                    </span>
+
+                                                                {/* Reactions row */}
+                                                                {msg.reactions && msg.reactions.length > 0 && (
+                                                                    <div className={`flex flex-wrap gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
+                                                                        {msg.reactions.map((r) => (
+                                                                            <button
+                                                                                key={r.emoji}
+                                                                                onClick={(e) => { e.stopPropagation(); handleReact(msg.id, r.emoji); }}
+                                                                                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border transition-all ${r.reacted ? "bg-lime/20 border-lime/40" : "bg-muted border-border hover:bg-muted/80"}`}
+                                                                            >
+                                                                                <span>{r.emoji}</span>
+                                                                                <span className="text-[10px] font-semibold">{r.count}</span>
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -431,7 +619,15 @@ export default function FloatingChat() {
                                     )}
                                 </div>
 
+                                {/* Input */}
                                 <div className="p-3 border-t border-border bg-card/95 shrink-0">
+                                    {replyTo && !recording && (
+                                        <ReplyPreview
+                                            msg={replyTo}
+                                            senderName={replyTo.sender_id === currentUser?.id ? "You" : selectedFriend.username}
+                                            onCancel={() => setReplyTo(null)}
+                                        />
+                                    )}
                                     {recording ? (
                                         <div className="flex items-center gap-2 h-10">
                                             <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30">
@@ -450,7 +646,7 @@ export default function FloatingChat() {
                                                 {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
                                             </button>
                                             <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                                            <Input ref={inputRef} placeholder="Message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()} className="h-10 text-sm rounded-xl flex-1" />
+                                            <Input ref={inputRef} placeholder={replyTo ? "Reply..." : "Message..."} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()} className="h-10 text-sm rounded-xl flex-1" />
                                             {newMessage.trim() ? (
                                                 <Button size="sm" className="h-10 w-10 p-0 rounded-xl shrink-0" onClick={sendMessage}><Send className="w-4 h-4" /></Button>
                                             ) : (
@@ -466,11 +662,22 @@ export default function FloatingChat() {
                             <>
                                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 shrink-0">
                                     <p className="font-display font-bold text-base">Messages</p>
-                                    {/* Small chevron-down to close */}
                                     <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
                                 </div>
+
+                                {/* Unread senders banner */}
+                                {unreadSenders.length > 0 && (
+                                    <div className="px-4 py-2 bg-lime/10 border-b border-lime/20 shrink-0">
+                                        <p className="text-xs text-lime font-semibold">
+                                            💬 New message{unreadSenders.length > 1 ? "s" : ""} from{" "}
+                                            {unreadSenders.slice(0, 2).join(", ")}
+                                            {unreadSenders.length > 2 ? ` +${unreadSenders.length - 2} more` : ""}
+                                        </p>
+                                    </div>
+                                )}
+
                                 <div className="flex-1 overflow-y-auto divide-y divide-border/50">
                                     {friends.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
@@ -479,22 +686,32 @@ export default function FloatingChat() {
                                             <p className="text-xs text-muted-foreground">Add friends to start chatting</p>
                                         </div>
                                     ) : (
-                                        friends.map((friend) => (
-                                            <button key={friend.id} onClick={() => setSelectedFriend(friend)} className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 active:bg-muted transition-colors">
-                                                {friend.avatar_url ? (
-                                                    <img src={friend.avatar_url} className="w-11 h-11 rounded-full object-cover shrink-0" alt="" />
-                                                ) : (
-                                                    <div className="w-11 h-11 rounded-full bg-lime/20 flex items-center justify-center font-bold text-lime text-sm shrink-0">
-                                                        {friend.username.slice(0, 2).toUpperCase()}
+                                        friends.map((friend) => {
+                                            const hasUnread = unreadSenders.includes(friend.username);
+                                            return (
+                                                <button key={friend.id} onClick={() => setSelectedFriend(friend)} className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 active:bg-muted transition-colors">
+                                                    <div className="relative shrink-0">
+                                                        {friend.avatar_url ? (
+                                                            <img src={friend.avatar_url} className="w-11 h-11 rounded-full object-cover" alt="" />
+                                                        ) : (
+                                                            <div className="w-11 h-11 rounded-full bg-lime/20 flex items-center justify-center font-bold text-lime text-sm">
+                                                                {friend.username.slice(0, 2).toUpperCase()}
+                                                            </div>
+                                                        )}
+                                                        {hasUnread && (
+                                                            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-card" />
+                                                        )}
                                                     </div>
-                                                )}
-                                                <div className="text-left flex-1 min-w-0">
-                                                    <p className="font-semibold text-sm">{friend.username}</p>
-                                                    <p className="text-xs text-muted-foreground">Tap to chat</p>
-                                                </div>
-                                                <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180 shrink-0" />
-                                            </button>
-                                        ))
+                                                    <div className="text-left flex-1 min-w-0">
+                                                        <p className="font-semibold text-sm">{friend.username}</p>
+                                                        <p className={`text-xs truncate ${hasUnread ? "text-lime font-medium" : "text-muted-foreground"}`}>
+                                                            {hasUnread ? "New message" : "Tap to chat"}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180 shrink-0" />
+                                                </button>
+                                            );
+                                        })
                                     )}
                                 </div>
                             </>
@@ -504,7 +721,6 @@ export default function FloatingChat() {
                 </>
             )}
 
-            {/* FIX: Floating button only shows when chat is closed — no more big X covering the chat */}
             {!open && (
                 <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-lime flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-transform">
                     <MessageCircle className="w-6 h-6 text-[#0D0D18]" />
