@@ -347,6 +347,14 @@ export default function FloatingChat() {
     }, [selectedFriend, currentUser]);
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+    useEffect(() => {
+        const setVh = () => {
+            document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+        };
+        setVh();
+        window.addEventListener('resize', setVh);
+        return () => window.removeEventListener('resize', setVh);
+    }, []);
     useEffect(() => { if (selectedFriend && open) setTimeout(() => inputRef.current?.focus(), 100); }, [selectedFriend, open]);
 
     const playNotifSound = () => {
@@ -508,7 +516,10 @@ export default function FloatingChat() {
         <>
             {open && (
                 <>
-                    <div className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden">
+                    <div
+                        className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden fixed-chat sm:h-auto"
+                        style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+                    >
                         {selectedFriend ? (
                             <>
                                 {/* Header */}
@@ -582,7 +593,7 @@ export default function FloatingChat() {
                                                                     setTimeout(() => inputRef.current?.focus(), 50);
                                                                 }}
                                                             >
-                                                                <div className="max-w-[75%] relative">
+                                                                <div className="max-w-[75%] relative ml-auto">
                                                                     {msg.reply_to && <ReplyPreview msg={msg.reply_to} senderName={replyAuthorName} />}
 
                                                                     {/* Bubble — click to open emoji picker */}

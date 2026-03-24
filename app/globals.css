@@ -40,8 +40,8 @@
     --surface-1: #FFFFFF;
     --surface-2: #F5F5F0;
     --surface-3: #EEEEE8;
-    --glow-lime: 0 0 20px rgba(0,183,255,0.4);
-    --glow-coral: 0 0 20px rgba(255,107,107,0.4);
+    --glow-lime: 0 0 20px rgba(0, 183, 255, 0.4);
+    --glow-coral: 0 0 20px rgba(255, 107, 107, 0.4);
   }
 
   .dark {
@@ -76,8 +76,8 @@
     --surface-1: #0D0D18;
     --surface-2: #12121F;
     --surface-3: #1A1A2E;
-    --glow-lime: 0 0 30px rgba(0,183,255,0.25);
-    --glow-coral: 0 0 30px rgba(255,107,107,0.25);
+    --glow-lime: 0 0 30px rgba(0, 183, 255, 0.25);
+    --glow-coral: 0 0 30px rgba(255, 107, 107, 0.25);
   }
 }
 
@@ -93,41 +93,74 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display;
   }
 }
 
 @layer utilities {
-  .font-display { font-family: var(--font-syne), sans-serif; }
-  .font-body { font-family: var(--font-dm-sans), sans-serif; }
-  .font-mono { font-family: var(--font-jetbrains), monospace; }
+  .font-display {
+    font-family: var(--font-syne), sans-serif;
+  }
+
+  .font-body {
+    font-family: var(--font-dm-sans), sans-serif;
+  }
+
+  .font-mono {
+    font-family: var(--font-jetbrains), monospace;
+  }
 
   /* Glassmorphism */
   .glass {
     @apply backdrop-blur-xl border border-white/10;
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 255, 255, 0.04);
   }
+
   .glass-strong {
     @apply backdrop-blur-2xl border border-white/15;
-    background: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   /* Lime accent utilities */
-  .text-lime { color: var(--lime); }
-  .bg-lime { background-color: var(--lime); }
-  .border-lime { border-color: var(--lime); }
-  .text-coral { color: var(--coral); }
-  .bg-coral { background-color: var(--coral); }
+  .text-lime {
+    color: var(--lime);
+  }
+
+  .bg-lime {
+    background-color: var(--lime);
+  }
+
+  .border-lime {
+    border-color: var(--lime);
+  }
+
+  .text-coral {
+    color: var(--coral);
+  }
+
+  .bg-coral {
+    background-color: var(--coral);
+  }
 
   /* Glow effects */
-  .glow-lime { box-shadow: var(--glow-lime); }
-  .glow-coral { box-shadow: var(--glow-coral); }
+  .glow-lime {
+    box-shadow: var(--glow-lime);
+  }
+
+  .glow-coral {
+    box-shadow: var(--glow-coral);
+  }
 
   /* Grid background */
   .bg-grid {
-    background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px);
     background-size: 32px 32px;
   }
 
@@ -136,12 +169,15 @@
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
+
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
   }
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: hsl(var(--border));
     border-radius: 2px;
@@ -149,8 +185,13 @@
 
   /* XP Bar animation */
   @keyframes xp-fill {
-    from { width: 0%; }
-    to { width: var(--xp-target, 0%); }
+    from {
+      width: 0%;
+    }
+
+    to {
+      width: var(--xp-target, 0%);
+    }
   }
 
   .animate-xp-fill {
@@ -159,9 +200,15 @@
 
   /* Shine sweep */
   @keyframes shine {
-    from { left: -100%; }
-    to { left: 200%; }
+    from {
+      left: -100%;
+    }
+
+    to {
+      left: 200%;
+    }
   }
+
   .shine-on-hover:hover::after {
     content: '';
     position: absolute;
@@ -169,9 +216,10 @@
     left: -100%;
     width: 60%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
     animation: shine 0.6s ease forwards;
   }
+
   .shine-on-hover {
     position: relative;
     overflow: hidden;
@@ -189,9 +237,10 @@
   .card-hover {
     @apply transition-all duration-300;
   }
+
   .card-hover:hover {
     @apply -translate-y-1;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   }
 
   /* Noise overlay */
@@ -211,7 +260,7 @@
     color: #0D0D18;
     min-width: 1.75rem;
     min-height: 1.75rem;
-    box-shadow: 0 0 12px rgba(0,183,255,0.5);
+    box-shadow: 0 0 12px rgba(0, 183, 255, 0.5);
   }
 
   /* Streak fire */
@@ -233,14 +282,16 @@
 input[type="range"] {
   @apply appearance-none bg-transparent cursor-pointer;
 }
+
 input[type="range"]::-webkit-slider-runnable-track {
   @apply rounded-full h-2;
   background: hsl(var(--muted));
 }
+
 input[type="range"]::-webkit-slider-thumb {
   @apply appearance-none w-4 h-4 rounded-full -mt-1;
   background: var(--lime);
-  box-shadow: 0 0 8px rgba(0,183,255,0.5);
+  box-shadow: 0 0 8px rgba(0, 183, 255, 0.5);
 }
 
 /* Focus visible */
@@ -253,28 +304,43 @@ input[type="range"]::-webkit-slider-thumb {
 .react-calendar {
   @apply bg-transparent border-0 w-full font-body;
 }
+
 .react-calendar__navigation {
   @apply flex items-center mb-4;
 }
+
 .react-calendar__navigation button {
   @apply text-foreground font-display font-semibold;
 }
+
 .react-calendar__tile {
   @apply text-sm rounded-lg p-2 text-muted-foreground transition-colors;
 }
+
 .react-calendar__tile:hover {
   @apply bg-muted text-foreground;
 }
+
 .react-calendar__tile--active {
   background: var(--lime) !important;
   @apply text-foreground font-bold rounded-lg;
 }
+
 .react-calendar__tile--now {
   @apply border border-lime-300;
 }
+
 .react-calendar__month-view__weekdays {
   @apply text-xs text-muted-foreground font-semibold uppercase;
 }
+
 .react-calendar__month-view__weekdays abbr {
   @apply no-underline;
+}
+
+/* Prevent keyboard from resizing the viewport on mobile */
+@supports (height: 100dvh) {
+  .fixed-chat {
+    height: 100dvh;
+  }
 }
