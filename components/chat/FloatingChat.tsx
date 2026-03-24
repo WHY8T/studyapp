@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Profile } from "@/types";
 import {
     MessageCircle, X, Send, ChevronLeft, Timer, Loader2,
-    Check, CheckCheck, Mic, ImagePlus, Play, Pause, StopCircle, CornerUpLeft,
+    Check, CheckCheck, Mic, ImagePlus, Play, Pause, StopCircle,
 } from "lucide-react";
 
 interface Reaction { emoji: string; count: number; reacted: boolean; }
@@ -131,7 +131,6 @@ function SwipeableMessage({ children, onSwipe, isMine }: { children: React.React
     const onTouchMove = (e: React.TouchEvent) => {
         if (startXRef.current === null) return;
         const dx = e.touches[0].clientX - startXRef.current;
-        // Only allow swipe right (positive dx) regardless of who sent it
         if (dx > 0 && dx < 80) {
             setOffset(dx);
             if (dx > 50 && !triggered.current) {
@@ -191,6 +190,7 @@ export default function FloatingChat() {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Load current user and friends
     useEffect(() => {
         const load = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -209,31 +209,26 @@ export default function FloatingChat() {
             const { data: profiles } = await supabase.from("profiles").select("*").in("id", friendIds);
             const friendsList = (profiles as Profile[]) ?? [];
 
-            // Get last message time for each friend to sort by recency
             const { data: lastMsgs } = await supabase.from("messages")
                 .select("sender_id, receiver_id, created_at")
                 .or(friendIds.map((id) => `and(sender_id.eq.${user.id},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${user.id})`).join(","))
                 .order("created_at", { ascending: false });
 
-            // Build a map of friendId -> last message time
             const lastMsgMap: Record<string, string> = {};
             (lastMsgs ?? []).forEach((m) => {
                 const friendId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
                 if (!lastMsgMap[friendId]) lastMsgMap[friendId] = m.created_at;
             });
 
-            // Get unread senders
             const { data: unread } = await supabase.from("messages")
                 .select("sender_id").eq("receiver_id", user.id).eq("read", false);
             const unreadSenderIds = new Set((unread ?? []).map((m) => m.sender_id));
 
-            // Build enriched friends list sorted by last message recency
             const enriched: FriendWithLastMsg[] = friendsList.map((f) => ({
                 ...f,
                 lastMessageAt: lastMsgMap[f.id] ?? "1970-01-01",
                 hasUnread: unreadSenderIds.has(f.id),
             })).sort((a, b) => {
-                // Unread first, then by last message time
                 if (a.hasUnread && !b.hasUnread) return -1;
                 if (!a.hasUnread && b.hasUnread) return 1;
                 return new Date(b.lastMessageAt ?? "").getTime() - new Date(a.lastMessageAt ?? "").getTime();
@@ -262,6 +257,7 @@ export default function FloatingChat() {
         return map;
     };
 
+    // Realtime: incoming messages
     useEffect(() => {
         if (!currentUser) return;
         const channel = supabase.channel(`chat:${currentUser.id}`)
@@ -281,7 +277,6 @@ export default function FloatingChat() {
                         const sender = friends.find((f) => f.id === msg.sender_id);
                         const senderName = sender?.username ?? "Someone";
                         setUnreadSenders((prev) => prev.includes(senderName) ? prev : [...prev, senderName]);
-                        // Move sender to top of friends list
                         setFriends((prev) => {
                             const idx = prev.findIndex((f) => f.id === msg.sender_id);
                             if (idx === -1) return prev;
@@ -296,6 +291,7 @@ export default function FloatingChat() {
         return () => { supabase.removeChannel(channel); };
     }, [currentUser, selectedFriend, friends]);
 
+    // Realtime: study rooms
     useEffect(() => {
         if (!currentUser) return;
         const channel = supabase.channel(`study:${currentUser.id}`)
@@ -313,6 +309,7 @@ export default function FloatingChat() {
         return () => { supabase.removeChannel(channel); };
     }, [currentUser, friends, open]);
 
+    // Load messages when a friend is selected
     useEffect(() => {
         if (!selectedFriend || !currentUser) return;
         const load = async () => {
@@ -346,15 +343,16 @@ export default function FloatingChat() {
         load();
     }, [selectedFriend, currentUser]);
 
+    // Scroll to bottom on new messages
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+    // Fix viewport height ONCE — no resize listener so keyboard never shifts the layout
     useEffect(() => {
-        const setVh = () => {
-            document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
-        };
-        setVh();
-        window.addEventListener('resize', setVh);
-        return () => window.removeEventListener('resize', setVh);
+        const initialHeight = window.innerHeight;
+        document.documentElement.style.setProperty("--vh", `${initialHeight * 0.01}px`);
     }, []);
+
+    // Focus input when chat opens
     useEffect(() => { if (selectedFriend && open) setTimeout(() => inputRef.current?.focus(), 100); }, [selectedFriend, open]);
 
     const playNotifSound = () => {
@@ -390,9 +388,12 @@ export default function FloatingChat() {
         const replyId = replyTo?.id;
         const replyMsg = replyTo;
         setReplyTo(null);
-        const optimistic: Message = { id: `opt-${Math.random()}`, sender_id: currentUser.id, receiver_id: selectedFriend.id, content, type: "text", read: false, created_at: new Date().toISOString(), reply_to_id: replyId, reply_to: replyMsg ?? undefined, reactions: [] };
+        const optimistic: Message = {
+            id: `opt-${Math.random()}`, sender_id: currentUser.id, receiver_id: selectedFriend.id,
+            content, type: "text", read: false, created_at: new Date().toISOString(),
+            reply_to_id: replyId, reply_to: replyMsg ?? undefined, reactions: [],
+        };
         setMessages((prev) => [...prev, optimistic]);
-        // Update friend's last message time and move to top
         setFriends((prev) => {
             const idx = prev.findIndex((f) => f.id === selectedFriend.id);
             if (idx === -1) return prev;
@@ -403,7 +404,6 @@ export default function FloatingChat() {
         await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content, type: "text", reply_to_id: replyId ?? null });
     };
 
-    // FIX: Reactions — removed the overlay approach, using a ref-based outside click instead
     const handleReact = async (messageId: string, emoji: string) => {
         if (!currentUser) return;
         if (messageId.startsWith("opt-")) { setReactingTo(null); return; }
@@ -454,7 +454,9 @@ export default function FloatingChat() {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+            const mimeType = MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4"
+                : MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus"
+                    : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
             const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
             audioChunksRef.current = [];
             recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
@@ -469,7 +471,11 @@ export default function FloatingChat() {
         setRecording(false);
         if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
         const duration = recordingSeconds;
-        await new Promise<void>((resolve) => { mediaRecorderRef.current!.onstop = () => resolve(); mediaRecorderRef.current!.stop(); mediaRecorderRef.current!.stream.getTracks().forEach((t) => t.stop()); });
+        await new Promise<void>((resolve) => {
+            mediaRecorderRef.current!.onstop = () => resolve();
+            mediaRecorderRef.current!.stop();
+            mediaRecorderRef.current!.stream.getTracks().forEach((t) => t.stop());
+        });
         if (duration < 1) return;
         setUploadingVoice(true);
         const mimeType = audioChunksRef.current[0]?.type || "audio/mp4";
@@ -516,9 +522,10 @@ export default function FloatingChat() {
         <>
             {open && (
                 <>
+                    {/* ── Chat panel ── */}
                     <div
-                        className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden fixed-chat sm:h-auto"
-                        style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
+                        className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden sm:h-auto"
+                        style={{ height: "calc(var(--vh, 1vh) * 100)", maxHeight: "-webkit-fill-available" }}
                     >
                         {selectedFriend ? (
                             <>
@@ -546,11 +553,25 @@ export default function FloatingChat() {
                                     </button>
                                 </div>
 
+                                {/* Study room banner */}
                                 {studyRoom && (
                                     <div className="px-4 py-2.5 bg-lime/10 border-b border-lime/20 shrink-0">
-                                        {studyRoom.status === "waiting" && isGuest && (<div className="flex items-center justify-between"><p className="text-xs font-semibold text-lime">📚 Study invite!</p><Button size="sm" className="h-6 text-xs px-3" onClick={acceptStudyInvite}>Accept</Button></div>)}
-                                        {studyRoom.status === "waiting" && isHost && <p className="text-xs text-muted-foreground text-center">Waiting for {selectedFriend.username}...</p>}
-                                        {studyRoom.status === "active" && (<div className="flex items-center justify-center gap-2"><Timer className="w-3.5 h-3.5 text-lime" /><span className="font-mono font-bold text-lime text-sm">{fmt(timeLeft)}</span><span className="text-xs text-muted-foreground">studying together</span></div>)}
+                                        {studyRoom.status === "waiting" && isGuest && (
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-semibold text-lime">📚 Study invite!</p>
+                                                <Button size="sm" className="h-6 text-xs px-3" onClick={acceptStudyInvite}>Accept</Button>
+                                            </div>
+                                        )}
+                                        {studyRoom.status === "waiting" && isHost && (
+                                            <p className="text-xs text-muted-foreground text-center">Waiting for {selectedFriend.username}...</p>
+                                        )}
+                                        {studyRoom.status === "active" && (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <Timer className="w-3.5 h-3.5 text-lime" />
+                                                <span className="font-mono font-bold text-lime text-sm">{fmt(timeLeft)}</span>
+                                                <span className="text-xs text-muted-foreground">studying together</span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -560,10 +581,14 @@ export default function FloatingChat() {
                                     onClick={() => setReactingTo(null)}
                                 >
                                     {loading ? (
-                                        <div className="flex justify-center py-12"><Loader2 className="animate-spin w-5 h-5 text-muted-foreground" /></div>
+                                        <div className="flex justify-center py-12">
+                                            <Loader2 className="animate-spin w-5 h-5 text-muted-foreground" />
+                                        </div>
                                     ) : messages.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
-                                            <div className="w-14 h-14 rounded-2xl bg-lime/10 flex items-center justify-center"><MessageCircle className="w-7 h-7 text-lime" /></div>
+                                            <div className="w-14 h-14 rounded-2xl bg-lime/10 flex items-center justify-center">
+                                                <MessageCircle className="w-7 h-7 text-lime" />
+                                            </div>
                                             <p className="text-sm font-semibold">No messages yet</p>
                                             <p className="text-xs text-muted-foreground">Say hi to {selectedFriend.username}! 👋</p>
                                         </div>
@@ -573,7 +598,9 @@ export default function FloatingChat() {
                                                 const isMine = msg.sender_id === currentUser?.id;
                                                 const prev = messages[i - 1];
                                                 const showTime = !prev || new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60 * 1000;
-                                                const replyAuthorName = msg.reply_to ? (msg.reply_to.sender_id === currentUser?.id ? "You" : selectedFriend.username) : "";
+                                                const replyAuthorName = msg.reply_to
+                                                    ? (msg.reply_to.sender_id === currentUser?.id ? "You" : selectedFriend.username)
+                                                    : "";
 
                                                 return (
                                                     <div key={msg.id}>
@@ -584,8 +611,9 @@ export default function FloatingChat() {
                                                                 </span>
                                                             </div>
                                                         )}
-                                                        <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                                                            {/* Swipe to reply wraps the whole bubble */}
+
+                                                        {/* Row — aligns bubble left or right, no extra gap */}
+                                                        <div className={`flex w-full ${isMine ? "justify-end" : "justify-start"}`}>
                                                             <SwipeableMessage
                                                                 isMine={isMine}
                                                                 onSwipe={() => {
@@ -593,12 +621,16 @@ export default function FloatingChat() {
                                                                     setTimeout(() => inputRef.current?.focus(), 50);
                                                                 }}
                                                             >
-                                                                <div className="max-w-[75%] relative ml-auto">
+                                                                {/* Bubble wrapper — max width only, no auto margins */}
+                                                                <div className="max-w-[75vw] sm:max-w-[260px] relative">
                                                                     {msg.reply_to && <ReplyPreview msg={msg.reply_to} senderName={replyAuthorName} />}
 
-                                                                    {/* Bubble — click to open emoji picker */}
+                                                                    {/* Bubble */}
                                                                     <div
-                                                                        className={`relative px-3 py-2 text-sm leading-relaxed cursor-pointer select-none ${isMine ? "bg-lime text-[#0D0D18] rounded-2xl rounded-br-sm" : "bg-muted text-foreground rounded-2xl rounded-bl-sm"}`}
+                                                                        className={`relative px-3 py-2 text-sm leading-relaxed cursor-pointer select-none ${isMine
+                                                                            ? "bg-lime text-[#0D0D18] rounded-2xl rounded-br-sm"
+                                                                            : "bg-muted text-foreground rounded-2xl rounded-bl-sm"
+                                                                            }`}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setReactingTo((prev) => prev === msg.id ? null : msg.id);
@@ -606,7 +638,12 @@ export default function FloatingChat() {
                                                                     >
                                                                         {msg.type === "text" && <span>{msg.content}</span>}
                                                                         {msg.type === "image" && msg.media_url && (
-                                                                            <img src={msg.media_url} alt="Image" className="rounded-xl max-w-[220px] max-h-[200px] object-cover" onClick={(e) => { e.stopPropagation(); window.open(msg.media_url, "_blank"); }} />
+                                                                            <img
+                                                                                src={msg.media_url}
+                                                                                alt="Image"
+                                                                                className="rounded-xl max-w-[220px] max-h-[200px] object-cover"
+                                                                                onClick={(e) => { e.stopPropagation(); window.open(msg.media_url, "_blank"); }}
+                                                                            />
                                                                         )}
                                                                         {msg.type === "voice" && msg.media_url && (
                                                                             <VoicePlayer url={msg.media_url} duration={msg.duration_seconds} isMine={isMine} />
@@ -618,7 +655,7 @@ export default function FloatingChat() {
                                                                         )}
                                                                     </div>
 
-                                                                    {/* Emoji picker — rendered inline, NOT inside a portal */}
+                                                                    {/* Emoji picker */}
                                                                     {reactingTo === msg.id && (
                                                                         <div
                                                                             className={`absolute z-[70] flex gap-1 p-2 rounded-2xl bg-card border border-border shadow-xl -top-14 ${isMine ? "right-0" : "left-0"}`}
@@ -627,11 +664,7 @@ export default function FloatingChat() {
                                                                             {EMOJI_OPTIONS.map((emoji) => (
                                                                                 <button
                                                                                     key={emoji}
-                                                                                    onPointerDown={(e) => {
-                                                                                        // Use onPointerDown instead of onClick to fire before the outside-click handler
-                                                                                        e.stopPropagation();
-                                                                                        handleReact(msg.id, emoji);
-                                                                                    }}
+                                                                                    onPointerDown={(e) => { e.stopPropagation(); handleReact(msg.id, emoji); }}
                                                                                     className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-muted active:scale-125 transition-all text-lg"
                                                                                 >
                                                                                     {emoji}
@@ -666,7 +699,7 @@ export default function FloatingChat() {
                                     )}
                                 </div>
 
-                                {/* Input */}
+                                {/* Input bar */}
                                 <div className="p-3 border-t border-border bg-card/95 shrink-0">
                                     {replyTo && !recording && (
                                         <ReplyPreview
@@ -682,7 +715,9 @@ export default function FloatingChat() {
                                                 <span className="text-sm font-mono text-red-400">{fmt(recordingSeconds)}</span>
                                                 <span className="text-xs text-muted-foreground">Recording...</span>
                                             </div>
-                                            <button onClick={cancelRecording} className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors"><X className="w-4 h-4" /></button>
+                                            <button onClick={cancelRecording} className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors">
+                                                <X className="w-4 h-4" />
+                                            </button>
                                             <button onClick={stopRecording} disabled={uploadingVoice} className="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors">
                                                 {uploadingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <StopCircle className="w-4 h-4" />}
                                             </button>
@@ -693,9 +728,18 @@ export default function FloatingChat() {
                                                 {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
                                             </button>
                                             <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                                            <Input ref={inputRef} placeholder={replyTo ? "Reply..." : "Message..."} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()} className="h-10 text-sm rounded-xl flex-1" />
+                                            <Input
+                                                ref={inputRef}
+                                                placeholder={replyTo ? "Reply..." : "Message..."}
+                                                value={newMessage}
+                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                                                className="h-10 text-sm rounded-xl flex-1"
+                                            />
                                             {newMessage.trim() ? (
-                                                <Button size="sm" className="h-10 w-10 p-0 rounded-xl shrink-0" onClick={sendMessage}><Send className="w-4 h-4" /></Button>
+                                                <Button size="sm" className="h-10 w-10 p-0 rounded-xl shrink-0" onClick={sendMessage}>
+                                                    <Send className="w-4 h-4" />
+                                                </Button>
                                             ) : (
                                                 <button onClick={startRecording} className="w-10 h-10 rounded-xl bg-lime/10 border border-lime/30 flex items-center justify-center text-lime hover:bg-lime/20 transition-colors shrink-0">
                                                     <Mic className="w-4 h-4" />
@@ -707,6 +751,7 @@ export default function FloatingChat() {
                             </>
                         ) : (
                             <>
+                                {/* Friends list header */}
                                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 shrink-0">
                                     <p className="font-display font-bold text-base">Messages</p>
                                     <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
@@ -725,7 +770,9 @@ export default function FloatingChat() {
                                 <div className="flex-1 overflow-y-auto divide-y divide-border/50">
                                     {friends.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
-                                            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center"><MessageCircle className="w-8 h-8 text-muted-foreground/40" /></div>
+                                            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                                                <MessageCircle className="w-8 h-8 text-muted-foreground/40" />
+                                            </div>
                                             <p className="font-semibold text-muted-foreground">No friends yet</p>
                                             <p className="text-xs text-muted-foreground">Add friends to start chatting</p>
                                         </div>
@@ -745,7 +792,10 @@ export default function FloatingChat() {
                                                 <div className="text-left flex-1 min-w-0">
                                                     <p className="font-semibold text-sm">{friend.username}</p>
                                                     <p className={`text-xs truncate ${friend.hasUnread ? "text-lime font-medium" : "text-muted-foreground"}`}>
-                                                        {friend.hasUnread ? "New message" : friend.lastMessageAt && friend.lastMessageAt !== "1970-01-01" ? new Date(friend.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Tap to chat"}
+                                                        {friend.hasUnread ? "New message"
+                                                            : friend.lastMessageAt && friend.lastMessageAt !== "1970-01-01"
+                                                                ? new Date(friend.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                                                : "Tap to chat"}
                                                     </p>
                                                 </div>
                                                 <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180 shrink-0" />
@@ -756,10 +806,13 @@ export default function FloatingChat() {
                             </>
                         )}
                     </div>
+
+                    {/* Mobile backdrop */}
                     <div className="fixed inset-0 z-40 sm:hidden" onClick={() => { if (!selectedFriend) setOpen(false); }} />
                 </>
             )}
 
+            {/* FAB button */}
             {!open && (
                 <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-lime flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-transform">
                     <MessageCircle className="w-6 h-6 text-[#0D0D18]" />
