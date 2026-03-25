@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 const FREE_QUIZ_LIMIT = 10;
 
 export async function POST(request: NextRequest) {
@@ -53,9 +53,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-  const result = await model.generateContent(`Generate ${numQuestions} multiple choice questions from the following text.
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      {
+        role: "user",
+        content: `Generate ${numQuestions} multiple choice questions from the following text.
 Difficulty: ${difficulty}.
 
 Return ONLY a JSON array like this (no markdown, no explanation):
@@ -69,9 +72,12 @@ Return ONLY a JSON array like this (no markdown, no explanation):
 ]
 
 Text:
-${text}`);
+${text}`,
+      },
+    ],
+  });
 
-  const responseText = result.response.text();
+  const responseText = completion.choices[0].message.content ?? "";
 
   let questions;
   try {
