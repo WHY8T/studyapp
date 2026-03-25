@@ -6,7 +6,6 @@
 
 @layer base {
   :root {
-    /* Light mode */
     --background: 50 30% 97%;
     --foreground: 230 25% 10%;
     --card: 0 0% 100%;
@@ -27,13 +26,7 @@
     --input: 230 15% 88%;
     --ring: 197 100% 40%;
     --radius: 0.75rem;
-    --chart-1: 197 100% 40%;
-    --chart-2: 340 82% 60%;
-    --chart-3: 200 80% 55%;
-    --chart-4: 270 70% 65%;
-    --chart-5: 30 90% 60%;
 
-    /* Custom brand */
     --lime: #00b7ff;
     --lime-dim: #56cfff;
     --coral: #FF6B6B;
@@ -64,11 +57,6 @@
     --border: 230 20% 14%;
     --input: 230 20% 14%;
     --ring: 197 100% 50%;
-    --chart-1: 197 100% 50%;
-    --chart-2: 340 82% 60%;
-    --chart-3: 200 80% 55%;
-    --chart-4: 270 70% 65%;
-    --chart-5: 30 90% 60%;
 
     --lime: #00b7ff;
     --lime-dim: #56cfff;
@@ -79,11 +67,15 @@
     --glow-lime: 0 0 30px rgba(0, 183, 255, 0.25);
     --glow-coral: 0 0 30px rgba(255, 107, 107, 0.25);
   }
-}
 
-@layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    width: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -91,6 +83,17 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
   }
 
   h1,
@@ -100,6 +103,13 @@
   h5,
   h6 {
     @apply font-display;
+    word-break: break-word;
+  }
+
+  p,
+  span,
+  div {
+    word-break: break-word;
   }
 }
 
@@ -116,7 +126,6 @@
     font-family: var(--font-jetbrains), monospace;
   }
 
-  /* Glassmorphism */
   .glass {
     @apply backdrop-blur-xl border border-white/10;
     background: rgba(255, 255, 255, 0.04);
@@ -127,7 +136,6 @@
     background: rgba(255, 255, 255, 0.08);
   }
 
-  /* Lime accent utilities */
   .text-lime {
     color: var(--lime);
   }
@@ -148,7 +156,6 @@
     background-color: var(--coral);
   }
 
-  /* Glow effects */
   .glow-lime {
     box-shadow: var(--glow-lime);
   }
@@ -157,14 +164,13 @@
     box-shadow: var(--glow-coral);
   }
 
-  /* Grid background */
   .bg-grid {
-    background-image: linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
+    background-image:
+      linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px);
     background-size: 32px 32px;
   }
 
-  /* Scrollbar */
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
@@ -183,49 +189,6 @@
     border-radius: 2px;
   }
 
-  /* XP Bar animation */
-  @keyframes xp-fill {
-    from {
-      width: 0%;
-    }
-
-    to {
-      width: var(--xp-target, 0%);
-    }
-  }
-
-  .animate-xp-fill {
-    animation: xp-fill 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-
-  /* Shine sweep */
-  @keyframes shine {
-    from {
-      left: -100%;
-    }
-
-    to {
-      left: 200%;
-    }
-  }
-
-  .shine-on-hover:hover::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-    animation: shine 0.6s ease forwards;
-  }
-
-  .shine-on-hover {
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Gradient text */
   .text-gradient-lime {
     background: linear-gradient(135deg, #409dc2 0%, #008fc7 100%);
     -webkit-background-clip: text;
@@ -233,7 +196,6 @@
     background-clip: text;
   }
 
-  /* Card hover lift */
   .card-hover {
     @apply transition-all duration-300;
   }
@@ -243,17 +205,6 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   }
 
-  /* Noise overlay */
-  .noise::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* Level badge */
   .level-badge {
     @apply inline-flex items-center justify-center rounded-full font-display font-bold text-xs;
     background: linear-gradient(135deg, #409dc2, #008fc7);
@@ -263,24 +214,45 @@
     box-shadow: 0 0 12px rgba(0, 183, 255, 0.5);
   }
 
-  /* Streak fire */
   .streak-active {
     background: linear-gradient(135deg, #FF6B35, #FF4444);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* RESPONSIVE HELPERS */
+
+  .responsive-container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .responsive-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6;
+  }
+
+  .responsive-buttons {
+    @apply flex flex-col sm:flex-row gap-4;
+  }
+
+  .responsive-heading {
+    @apply text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-tight;
+  }
+
+  .responsive-text {
+    @apply text-sm sm:text-base md:text-lg;
+  }
 }
 
-/* Pomodoro timer ring */
+/* Timer */
 .timer-ring {
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
 
-/* Custom range input */
+/* Range input */
 input[type="range"] {
-  @apply appearance-none bg-transparent cursor-pointer;
+  @apply appearance-none bg-transparent cursor-pointer w-full;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
@@ -294,53 +266,33 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 0 8px rgba(0, 183, 255, 0.5);
 }
 
-/* Focus visible */
+/* Focus */
 :focus-visible {
   outline: 2px solid var(--lime);
   outline-offset: 2px;
 }
 
-/* Calendar custom styles */
+/* Calendar */
 .react-calendar {
   @apply bg-transparent border-0 w-full font-body;
 }
 
-.react-calendar__navigation {
-  @apply flex items-center mb-4;
-}
-
-.react-calendar__navigation button {
-  @apply text-foreground font-display font-semibold;
-}
-
 .react-calendar__tile {
-  @apply text-sm rounded-lg p-2 text-muted-foreground transition-colors;
+  @apply text-xs sm:text-sm rounded-lg p-2;
 }
 
-.react-calendar__tile:hover {
-  @apply bg-muted text-foreground;
-}
+/* Mobile fix */
+@media (max-width: 768px) {
+  h1 {
+    font-size: clamp(2rem, 8vw, 3.5rem);
+  }
 
-.react-calendar__tile--active {
-  background: var(--lime) !important;
-  @apply text-foreground font-bold rounded-lg;
-}
+  h2 {
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
+  }
 
-.react-calendar__tile--now {
-  @apply border border-lime-300;
-}
-
-.react-calendar__month-view__weekdays {
-  @apply text-xs text-muted-foreground font-semibold uppercase;
-}
-
-.react-calendar__month-view__weekdays abbr {
-  @apply no-underline;
-}
-
-/* Prevent keyboard from resizing the viewport on mobile */
-@supports (height: 100dvh) {
-  .fixed-chat {
-    height: 100dvh;
+  .glass,
+  .glass-strong {
+    padding: 1rem;
   }
 }
