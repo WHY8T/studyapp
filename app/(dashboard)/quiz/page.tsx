@@ -116,7 +116,9 @@ export default function QuizPage() {
       const { data: quiz } = await supabase.from("quizzes").insert({
         user_id: user.id,
         title: quizTitle || "Untitled Quiz",
-        source_text: parseData.text.slice(0, 5000),
+        description: parseData.text.slice(0, 500),
+        pdf_filename: file.name,
+        question_count: questionCount,
       }).select().single();
 
       // 4. Generate questions
