@@ -402,6 +402,16 @@ export default function FloatingChat() {
             return [updated[idx], ...updated.filter((_, i) => i !== idx)];
         });
         await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content, type: "text", reply_to_id: replyId ?? null });
+        await fetch("/api/notifications/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                targetUserId: selectedFriend.id,
+                title: `💬 ${currentUser.username}`,
+                body: content.slice(0, 100),
+                url: "/",
+            }),
+        });
     };
 
     const handleReact = async (messageId: string, emoji: string) => {
@@ -447,6 +457,16 @@ export default function FloatingChat() {
         if (err) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingImage(false); return; }
         const { data: { publicUrl } } = supabase.storage.from("chat-media").getPublicUrl(path);
         await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "image", media_url: publicUrl, reply_to_id: replyTo?.id ?? null });
+        await fetch("/api/notifications/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                targetUserId: selectedFriend.id,
+                title: `📸 ${currentUser.username}`,
+                body: "Sent you an image",
+                url: "/",
+            }),
+        });
         setMessages((prev) => [...prev, { id: `opt-${Math.random()}`, sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "image", media_url: publicUrl, read: false, created_at: new Date().toISOString(), reply_to: replyTo ?? undefined, reactions: [] }]);
         setReplyTo(null); setUploadingImage(false); e.target.value = "";
     };
@@ -486,6 +506,16 @@ export default function FloatingChat() {
         if (error) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingVoice(false); return; }
         const { data: { publicUrl } } = supabase.storage.from("chat-media").getPublicUrl(path);
         await supabase.from("messages").insert({ sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration, reply_to_id: replyTo?.id ?? null });
+        await fetch("/api/notifications/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                targetUserId: selectedFriend.id,
+                title: `🎤 ${currentUser.username}`,
+                body: "Sent you a voice message",
+                url: "/",
+            }),
+        });
         setMessages((prev) => [...prev, { id: `opt-${Math.random()}`, sender_id: currentUser.id, receiver_id: selectedFriend.id, content: "", type: "voice", media_url: publicUrl, duration_seconds: duration, read: false, created_at: new Date().toISOString(), reply_to: replyTo ?? undefined, reactions: [] }]);
         setReplyTo(null); setUploadingVoice(false); setRecordingSeconds(0);
     };
