@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { text, numQuestions = 10, difficulty = "medium" } = body;
+  // ✅ Fix: read both "questionCount" (from frontend) and "numQuestions" (fallback)
+  const { text, questionCount, numQuestions, difficulty = "mixed", title } = body;
+  const count = questionCount ?? numQuestions ?? 10;
 
   if (!text) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
@@ -58,33 +60,63 @@ export async function POST(request: NextRequest) {
     messages: [
       {
         role: "user",
-        content: `Generate ${numQuestions} multiple choice questions from the following text.
+        content: `Generate ${count} multiple choice questions from the following text.
 Difficulty: ${difficulty}.
 
-Return ONLY a JSON array like this (no markdown, no explanation):
-[
-  {
-    "question": "Question text?",
-    "options": ["A", "B", "C", "D"],
-    "correct_answer": 0,
-    "explanation": "Why A is correct"
-  }
-]
+Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
+{
+  "autoTitle": "Short descriptive title for this quiz",
+  "autoSummary": "One sentence summary of the source material",
+  "questions": [
+    {
+      "question": "Question text?",
+      "difficulty": "easy" | "medium" | "hard",
+      "options": [
+        { "text": "First option", "correct": false },
+        { "text": "Second option", "correct": true },
+        { "text": "Third option", "correct": false },
+        { "text": "Fourth option", "correct": false }
+      ],
+      "explanation": "Why the correct answer is correct",
+      "hint": "A subtle hint without giving the answer away"
+    }
+  ]
+}
+
+Rules:
+- Each question must have exactly 4 options
+- Exactly one option must have "correct": true
+- Match difficulty distribution to: ${difficulty === "mixed" ? "mix of easy, medium, hard" : difficulty}
+- Never use markdown in your response
 
 Text:
-${text}`,
+${text.slice(0, 12000)}`,
       },
     ],
   });
 
   const responseText = completion.choices[0].message.content ?? "";
 
-  let questions;
+  let parsed: { autoTitle?: string; autoSummary?: string; questions: any[] };
   try {
-    questions = JSON.parse(responseText.replace(/```json|```/g, "").trim());
+    parsed = JSON.parse(responseText.replace(/```json|```/g, "").trim());
   } catch {
     return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
   }
+
+  // ✅ Safety: validate each question has the right shape
+  const questions = parsed.questions?.map((q: any) => ({
+    question: q.question ?? "",
+    difficulty: q.difficulty ?? difficulty,
+    explanation: q.explanation ?? "",
+    hint: q.hint ?? "",
+    options: Array.isArray(q.options)
+      ? q.options.map((o: any) => ({
+        text: typeof o === "string" ? o : o.text ?? "",
+        correct: typeof o === "string" ? false : Boolean(o.correct),
+      }))
+      : [],
+  }));
 
   await supabase
     .from("profiles")
@@ -93,6 +125,8 @@ ${text}`,
 
   return NextResponse.json({
     questions,
+    autoTitle: parsed.autoTitle ?? title ?? "Untitled Quiz",
+    autoSummary: parsed.autoSummary ?? "",
     quiz_count: profile.quiz_count + 1,
     is_pro: profile.is_pro,
     remaining: profile.is_pro ? null : FREE_QUIZ_LIMIT - (profile.quiz_count + 1),
