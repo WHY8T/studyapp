@@ -29,6 +29,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { Profile, Todo, Subject } from "@/types";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface DashboardClientProps {
   profile: Profile;
@@ -56,6 +57,7 @@ export function DashboardClient({
   chartData,
 }: DashboardClientProps) {
   const levelInfo = getLevelInfo(profile?.xp ?? 0);
+  usePushNotifications();
 
   const stats = [
     {

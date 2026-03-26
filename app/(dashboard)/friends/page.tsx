@@ -122,15 +122,14 @@ export default function FriendsPage() {
       await fetchFriends(userId);
 
       // 👇 ADD THIS — notify the target user
-      await fetch("/api/notifications/send", {
+      await fetch("/api/notifications/push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: targetId,
-          fromUserId: userId,
-          type: "friend_request",
-          title: "New friend request",
-          message: `${myProfile?.username} wants to be your study buddy!`,
+          targetUserId: targetId,
+          title: "New Friend Request 👋",
+          body: `${myProfile?.username} wants to be your study buddy!`,
+          url: "/friends",
         }),
       });
     }
@@ -149,15 +148,14 @@ export default function FriendsPage() {
       // 👇 ADD THIS — notify the person whose request was accepted
       const acceptedFriend = pendingReceived.find((f) => f.friendship.id === friendshipId);
       if (acceptedFriend) {
-        await fetch("/api/notifications/send", {
+        await fetch("/api/notifications/push", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: acceptedFriend.profile.id,
-            fromUserId: userId,
-            type: "friend_accepted",
-            title: "Friend request accepted! 🎉",
-            message: `${myProfile?.username} accepted your friend request. Start studying together!`,
+            targetUserId: acceptedFriend.profile.id,
+            title: "Friend Request Accepted! 🎉",
+            body: `${myProfile?.username} accepted your friend request!`,
+            url: "/friends",
           }),
         });
       }
