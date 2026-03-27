@@ -1,179 +1,56 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { getLevelInfo } from "@/types";
-import { createClient } from "@/lib/supabase/client";
-import { Progress } from "@/components/ui/progress";
+import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import { Sun, Moon, Menu } from "lucide-react";
+import { NotificationBell } from "@/components/layout/NotificationBell";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { useLanguage } from "@/components/providers/LanguageContext";
-import {
-  LayoutDashboard, Timer, CheckSquare, Calendar, Sparkles,
-  Trophy, Users, User, LogOut, Flame, Zap, BarChart2, X, BookOpen,
-} from "lucide-react";
 import type { Profile } from "@/types";
 
-function useClockTime() {
-  const [time, setTime] = useState({ hm: "", hms: "" });
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      const h = String(now.getHours()).padStart(2, "0");
-      const m = String(now.getMinutes()).padStart(2, "0");
-      const s = String(now.getSeconds()).padStart(2, "0");
-      setTime({ hm: `${h}:${m}`, hms: `${h}:${m}:${s}` });
-    };
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, []);
-  return time;
-}
-
-interface SidebarProps {
+interface HeaderProps {
   profile: Profile | null;
-  onClose?: () => void;
+  onMenuToggle?: () => void;
 }
 
-export function Sidebar({ profile, onClose }: SidebarProps) {
-  const pathname = usePathname();
-  const { t, isRTL, language } = useLanguage();
-  const [clockOpen, setClockOpen] = useState(false);
-  const { hm, hms } = useClockTime();
-  const levelInfo = profile ? getLevelInfo(profile.xp) : null;
+export function Header({ profile, onMenuToggle }: HeaderProps) {
+  const { theme, setTheme } = useTheme();
+  const { t, language, isRTL } = useLanguage();
 
-  // Nav items use t() so they update when language changes
-  const NAV_ITEMS = [
-    { href: "/dashboard", label: t("nav_dashboard"), icon: LayoutDashboard },
-    { href: "/pomodoro", label: t("nav_pomodoro"), icon: Timer },
-    { href: "/todos", label: t("nav_tasks"), icon: CheckSquare },
-    { href: "/calendar", label: t("nav_calendar"), icon: Calendar },
-    { href: "/quiz", label: t("nav_quiz"), icon: Sparkles, badge: "AI" },
-    { href: "/achievements", label: t("nav_achievements"), icon: Trophy },
-    { href: "/leaderboard", label: t("nav_leaderboard"), icon: BarChart2 },
-    { href: "/friends", label: t("nav_friends"), icon: Users },
-    { href: "/showcase", label: t("nav_showcase"), icon: BookOpen },
-    { href: "/profile", label: t("nav_profile"), icon: User },
-  ];
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setClockOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t("greeting_morning");
+    if (hour < 18) return t("greeting_afternoon");
+    return t("greeting_evening");
   };
 
   return (
-    <>
-      <aside className="w-64 shrink-0 h-full flex flex-col border-r border-border bg-card">
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3 group" onClick={onClose}>
-            <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center transition-transform group-hover:scale-110">
-              <span className="font-display font-black text-[#0D0D18] text-base">N</span>
-            </div>
-            <div>
-              <p className="font-display font-black text-base leading-none">Nahda.Edu</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t("sidebar_tagline")}</p>
-            </div>
-          </Link>
-          <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-            <X className="w-4 h-4" />
-          </button>
+    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-40">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={onMenuToggle}>
+          <Menu className="w-4 h-4" />
+        </Button>
+
+        <div dir={isRTL ? "rtl" : "ltr"}>
+          <p className="font-display font-bold text-sm">
+            {getGreeting()}{profile?.full_name ? `، ${profile.full_name.split(" ")[0]}` : ""}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {new Date().toLocaleDateString(
+              language === "ar" ? "ar-DZ" : language === "fr" ? "fr-FR" : "en-US",
+              { weekday: "long", month: "long", day: "numeric" }
+            )}
+          </p>
         </div>
+      </div>
 
-        {profile && levelInfo && (
-          <div className="px-4 py-4 border-b border-border">
-            <div className="rounded-xl bg-muted/50 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="level-badge text-xs">{levelInfo.level}</div>
-                  <span className="font-display font-semibold text-sm truncate max-w-[100px]">{profile.username}</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Zap className="w-3 h-3 text-lime" />
-                  <span className="text-lime font-semibold">{profile.xp.toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{levelInfo.currentXp} XP</span>
-                  <span dir={isRTL ? "rtl" : "ltr"}>
-                    {levelInfo.xpForNextLevel} {t("sidebar_xp_to_level")} {levelInfo.level + 1}
-                  </span>
-                </div>
-                <Progress value={levelInfo.xpProgress} className="h-1.5" />
-              </div>
-              {profile.streak_current > 0 && (
-                <div className="flex items-center gap-1.5 text-xs">
-                  <Flame className="w-3.5 h-3.5 text-orange-400" />
-                  <span className="text-orange-400 font-semibold" dir={isRTL ? "rtl" : "ltr"}>
-                    {profile.streak_current} {t("sidebar_day_streak")}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
-          {NAV_ITEMS.map(({ href, label, icon: Icon, badge }) => {
-            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-            return (
-              <Link key={href} href={href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  active ? "bg-lime text-[#0D0D18] font-semibold shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0D0D18]" : "")} />
-                <span dir={isRTL ? "rtl" : "ltr"}>{label}</span>
-                {badge && <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-400/20 text-green-400">{badge}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {hm && (
-          <div className="px-4 pb-2">
-            <button onClick={() => setClockOpen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors">
-              <span suppressHydrationWarning className="font-mono font-bold text-base text-foreground tracking-widest">{hms}</span>
-            </button>
-          </div>
-        )}
-
-        <div className="p-4 border-t border-border">
-          <button onClick={handleSignOut} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive w-full transition-all duration-200">
-            <LogOut className="w-4 h-4" />
-            <span dir={isRTL ? "rtl" : "ltr"}>{t("nav_signout")}</span>
-          </button>
-        </div>
-      </aside>
-
-      {clockOpen && (
-        <div className="fixed inset-0 z-50 bg-[#08080F] flex flex-col items-center justify-center cursor-pointer" onClick={() => setClockOpen(false)}>
-          <button onClick={(e) => { e.stopPropagation(); setClockOpen(false); }} className="absolute top-6 right-6 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white">
-            <X className="w-6 h-6" />
-          </button>
-          <div className="space-y-4 text-center select-none">
-            <p suppressHydrationWarning className="text-white/30 text-sm uppercase tracking-[0.3em] font-semibold">
-              {new Date().toLocaleDateString(
-                language === "ar" ? "ar-DZ" : language === "fr" ? "fr-FR" : "en-US",
-                { weekday: "long", month: "long", day: "numeric", year: "numeric" }
-              )}
-            </p>
-            <div suppressHydrationWarning className="font-mono font-bold text-white" style={{ fontSize: "clamp(4rem, 14vw, 11rem)", letterSpacing: "-0.02em", textShadow: "0 0 80px rgba(0,183,255,0.25)" }}>
-              {hms}
-            </div>
-            <p className="text-white/20 text-sm">{t("clock_close")}</p>
-          </div>
-        </div>
-      )}
-    </>
+      <div className="flex items-center gap-2">
+        <NotificationBell />
+        <LanguageSwitcher />
+        <Button variant="ghost" size="icon-sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </Button>
+      </div>
+    </header>
   );
 }
