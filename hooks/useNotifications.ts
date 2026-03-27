@@ -105,20 +105,13 @@ export function useNotifications() {
                         const { data } = await supabase
                             .from("notifications")
                             .select(`
-    *,
-    from_profile:profiles!from_user_id(
-      username,
-      full_name,
-      avatar_url
-    )
-  
-                *,
-                from_profile:profiles!notifications_from_user_id_fkey(
-                  username,
-                  full_name,
-                  avatar_url
-                )
-              `)
+        *,
+        from_profile:profiles!from_user_id(
+            username,
+            full_name,
+            avatar_url
+        )
+    `)
                             .eq("id", payload.new.id)
                             .single();
 
