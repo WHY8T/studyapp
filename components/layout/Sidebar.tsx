@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { getLevelInfo } from "@/types";
@@ -50,7 +50,7 @@ function useClockTime() {
 
 export function Sidebar({ profile, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
+
   const [clockOpen, setClockOpen] = useState(false);
   const { hm, hms } = useClockTime();
   const levelInfo = profile ? getLevelInfo(profile.xp) : null;
@@ -64,10 +64,8 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login"; // ✅ hard redirect, clears all state
   };
-
   return (
     <>
       <aside className="w-64 shrink-0 h-full flex flex-col border-r border-border bg-card">

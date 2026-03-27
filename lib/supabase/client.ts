@@ -6,9 +6,10 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        persistSession: true,
-        storageKey: "nahda-edu-auth",
-        storage: typeof window !== "undefined" ? window.localStorage : undefined,
+        persistSession: true,        // ✅ keeps session on mobile after app close
+        autoRefreshToken: true,       // ✅ auto-refresh before expiry
+        storageKey: process.env.NEXT_PUBLIC_SUPABASE_STORAGE_KEY, // "nahda-edu-auth"
+        detectSessionInUrl: true,
       },
     }
   );
