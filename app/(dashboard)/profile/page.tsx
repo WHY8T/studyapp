@@ -8,37 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/components/providers/LanguageContext";
 import { getLevelInfo as getLevelInfoFn } from "@/types";
 import type { Profile, UserAchievement } from "@/types";
 import {
-  Edit3,
-  Save,
-  Trophy,
-  Zap,
-  TrendingUp,
-  Loader2,
-  Camera,
-  Code2,
-  ExternalLink,
-  FileText,
-  BookOpen,
-  FlaskConical,
-  Presentation,
-  GraduationCap,
-  Eye,
-  ChevronDown,
-  ChevronUp,
+  Edit3, Save, Trophy, Zap, TrendingUp, Loader2, Camera,
+  Code2, ExternalLink, FileText, BookOpen, FlaskConical,
+  Presentation, GraduationCap, Eye, ChevronDown, ChevronUp,
 } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subDays } from "date-fns";
 
-// ── Developer badge ───────────────────────────────────────────────────────────
 const DEVELOPER_ID = "2a9cccae-7e48-4db1-a696-2cbd44104fda";
 
 function DevBadge() {
@@ -53,30 +33,21 @@ function DevBadge() {
   );
 }
 
-// ── Showcase types ────────────────────────────────────────────────────────────
 interface ShowcaseItem {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  type: string;
-  subject: string | null;
-  file_url: string | null;
-  external_url: string | null;
-  is_public: boolean;
-  created_at: string;
+  id: string; user_id: string; title: string; description: string | null;
+  type: string; subject: string | null; file_url: string | null;
+  external_url: string | null; is_public: boolean; created_at: string;
 }
 
-const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  paper: { label: "Research Paper", icon: FileText, color: "#00b7ff" },
-  project: { label: "Project", icon: BookOpen, color: "#4ECDC4" },
-  research: { label: "Research", icon: FlaskConical, color: "#BB8FCE" },
-  presentation: { label: "Presentation", icon: Presentation, color: "#FF9F43" },
-  other: { label: "Other", icon: GraduationCap, color: "#96CEB4" },
+const TYPE_CONFIG: Record<string, { labelKey: string; icon: React.ElementType; color: string }> = {
+  paper: { labelKey: "paper", icon: FileText, color: "#00b7ff" },
+  project: { labelKey: "project", icon: BookOpen, color: "#4ECDC4" },
+  research: { labelKey: "research", icon: FlaskConical, color: "#BB8FCE" },
+  presentation: { labelKey: "presentation", icon: Presentation, color: "#FF9F43" },
+  other: { labelKey: "other", icon: GraduationCap, color: "#96CEB4" },
 };
 
-// ── Inline PDF viewer ─────────────────────────────────────────────────────────
-function PdfViewer({ url, title }: { url: string; title: string }) {
+function PdfViewer({ url, title, t }: { url: string; title: string; t: (k: any) => string }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="mt-1">
@@ -85,25 +56,17 @@ function PdfViewer({ url, title }: { url: string; title: string }) {
         className="flex items-center gap-1.5 text-xs font-semibold text-[#00b7ff] hover:underline transition"
       >
         <Eye className="w-3.5 h-3.5" />
-        {expanded ? "Hide PDF" : "View PDF"}
+        {expanded ? t("showcase_hide_pdf") : t("showcase_view_pdf")}
         {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
       {expanded && (
         <div className="mt-2 rounded-xl overflow-hidden border border-border">
-          <iframe
-            src={`${url}#toolbar=0&navpanes=0`}
-            title={title}
-            className="w-full"
-            style={{ height: "420px", background: "#1a1a2e" }}
-          />
+          <iframe src={`${url}#toolbar=0&navpanes=0`} title={title} className="w-full"
+            style={{ height: "420px", background: "#1a1a2e" }} />
           <div className="flex justify-end px-3 py-2 bg-muted border-t border-border">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-[#00b7ff] flex items-center gap-1 hover:underline"
-            >
-              <ExternalLink className="w-3 h-3" /> Open in new tab
+            <a href={url} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-[#00b7ff] flex items-center gap-1 hover:underline">
+              <ExternalLink className="w-3 h-3" /> {t("showcase_open_tab")}
             </a>
           </div>
         </div>
@@ -112,9 +75,9 @@ function PdfViewer({ url, title }: { url: string; title: string }) {
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -124,49 +87,26 @@ export default function ProfilePage() {
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-
   const supabase = createClient();
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
-
-      const [
-        { data: prof },
-        { data: earned },
-        { data: xpTxns },
-        { data: showcaseData },
-      ] = await Promise.all([
+      const [{ data: prof }, { data: earned }, { data: xpTxns }, { data: showcaseData }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase
-          .from("user_achievements")
-          .select("*, achievement:achievements(*)")
-          .eq("user_id", user.id)
-          .order("earned_at", { ascending: false }),
-        supabase
-          .from("xp_transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("work_showcases")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("is_public", true)
-          .order("created_at", { ascending: false }),
+        supabase.from("user_achievements").select("*, achievement:achievements(*)")
+          .eq("user_id", user.id).order("earned_at", { ascending: false }),
+        supabase.from("xp_transactions").select("*").eq("user_id", user.id)
+          .order("created_at", { ascending: false }).limit(20),
+        supabase.from("work_showcases").select("*").eq("user_id", user.id)
+          .eq("is_public", true).order("created_at", { ascending: false }),
       ]);
 
       setProfile(prof as Profile);
-      setEditForm({
-        full_name: prof?.full_name ?? "",
-        bio: prof?.bio ?? "",
-        username: prof?.username ?? "",
-      });
+      setEditForm({ full_name: prof?.full_name ?? "", bio: prof?.bio ?? "", username: prof?.username ?? "" });
       setAchievements((earned as UserAchievement[]) ?? []);
       setShowcase((showcaseData as ShowcaseItem[]) ?? []);
 
-      // Build XP history for last 7 days
       const xpByDay: Record<string, number> = {};
       for (let i = 6; i >= 0; i--) {
         const d = format(subDays(new Date(), i), "yyyy-MM-dd");
@@ -176,42 +116,28 @@ export default function ProfilePage() {
         const d = format(new Date(tx.created_at), "yyyy-MM-dd");
         if (d in xpByDay) xpByDay[d] += tx.amount;
       });
-      setXpHistory(
-        Object.entries(xpByDay).map(([date, xp]) => ({
-          day: format(new Date(date), "EEE"),
-          xp,
-        }))
-      );
-
+      setXpHistory(Object.entries(xpByDay).map(([date, xp]) => ({
+        day: format(new Date(date), "EEE"), xp,
+      })));
       setLoading(false);
     });
   }, []);
 
   const handleSave = async () => {
     if (!profile) return;
-
     if (editForm.username !== profile.username) {
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", editForm.username.toLowerCase())
-        .maybeSingle();
-
+      const { data: existing } = await supabase.from("profiles").select("id")
+        .eq("username", editForm.username.toLowerCase()).maybeSingle();
       if (existing) {
         toast({ title: "Username taken", description: "Choose a different username.", variant: "destructive" });
         return;
       }
     }
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: editForm.full_name,
-        bio: editForm.bio,
-        username: editForm.username.toLowerCase(),
-      })
-      .eq("id", profile.id);
-
+    const { error } = await supabase.from("profiles").update({
+      full_name: editForm.full_name,
+      bio: editForm.bio,
+      username: editForm.username.toLowerCase(),
+    }).eq("id", profile.id);
     if (!error) {
       setProfile((prev) => (prev ? { ...prev, ...editForm } : null));
       setEditing(false);
@@ -222,35 +148,24 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Please select an image file", variant: "destructive" });
-      return;
+      toast({ title: "Please select an image file", variant: "destructive" }); return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Image must be smaller than 5 MB", variant: "destructive" });
-      return;
+      toast({ title: "Image must be smaller than 5 MB", variant: "destructive" }); return;
     }
-
     setUploadingAvatar(true);
     try {
       const ext = file.name.split(".").pop() ?? "jpg";
       const path = `${profile.id}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
+      const { error: uploadError } = await supabase.storage.from("avatars")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadError) throw uploadError;
-
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
       const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ avatar_url: avatarUrl })
-        .eq("id", profile.id);
+      const { error: updateError } = await supabase.from("profiles")
+        .update({ avatar_url: avatarUrl }).eq("id", profile.id);
       if (updateError) throw updateError;
-
       setProfile((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : null));
       toast({ title: "Profile photo updated! 📸" });
     } catch (err: any) {
@@ -268,7 +183,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
   if (!profile) return null;
 
   const levelInfo = getLevelInfoFn(profile.xp);
@@ -276,45 +190,29 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* ── Profile header card ───────────────────────────────────────────── */}
+      {/* ── Profile header card ─────────────────────────────────────────── */}
       <Card className="overflow-hidden">
         <div className="h-24 bg-gradient-to-r from-[#0A0A14] via-[#1a1a30] to-[#0A0A14] relative">
           <div className="absolute inset-0 bg-grid opacity-30" />
           <div className="absolute -bottom-8 left-6">
             <div className="relative group">
               {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile.username}
-                  className="w-24 h-24 rounded-2xl border-4 border-card object-cover"
-                />
+                <img src={profile.avatar_url} alt={profile.username}
+                  className="w-24 h-24 rounded-2xl border-4 border-card object-cover" />
               ) : (
-                <div
-                  className="w-24 h-24 rounded-2xl border-4 border-card flex items-center justify-center font-display font-black text-3xl"
-                  style={{ background: "linear-gradient(135deg, #00b7ff, #0088cc)", color: "#0D0D18" }}
-                >
+                <div className="w-24 h-24 rounded-2xl border-4 border-card flex items-center justify-center font-display font-black text-3xl"
+                  style={{ background: "linear-gradient(135deg, #00b7ff, #0088cc)", color: "#0D0D18" }}>
                   {profile.username.slice(0, 2).toUpperCase()}
                 </div>
               )}
               {isDeveloper && <DevBadge />}
-              <button
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute inset-0 rounded-2xl flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Change profile photo"
-              >
+              <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
+                className="absolute inset-0 rounded-2xl flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
                 {uploadingAvatar
                   ? <Loader2 className="w-6 h-6 text-white animate-spin" />
-                  : <Camera className="w-6 h-6 text-white" />
-                }
+                  : <Camera className="w-6 h-6 text-white" />}
               </button>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
             </div>
           </div>
         </div>
@@ -324,27 +222,17 @@ export default function ProfilePage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 {editing ? (
-                  <Input
-                    value={editForm.full_name}
+                  <Input value={editForm.full_name}
                     onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                    placeholder="Full name"
-                    className="font-display font-bold text-xl h-auto py-1"
-                  />
+                    placeholder={t("profile_full_name_ph")}
+                    className="font-display font-bold text-xl h-auto py-1" />
                 ) : (
-                  <h1 className="font-display font-black text-xl">
-                    {profile.full_name || profile.username}
-                  </h1>
+                  <h1 className="font-display font-black text-xl">{profile.full_name || profile.username}</h1>
                 )}
                 {isDeveloper && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
-                    style={{
-                      background: "rgba(0,183,255,0.1)",
-                      borderColor: "rgba(0,183,255,0.3)",
-                      color: "#00b7ff",
-                    }}
-                  >
-                    <Code2 className="w-3 h-3" /> App Developer
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
+                    style={{ background: "rgba(0,183,255,0.1)", borderColor: "rgba(0,183,255,0.3)", color: "#00b7ff" }}>
+                    <Code2 className="w-3 h-3" /> {t("profile_app_dev")}
                   </span>
                 )}
               </div>
@@ -352,30 +240,20 @@ export default function ProfilePage() {
               {editing ? (
                 <div className="flex items-center gap-1 mt-1">
                   <span className="text-muted-foreground text-sm">@</span>
-                  <input
-                    value={editForm.username}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                      })
-                    }
+                  <input value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
                     className="text-sm bg-transparent border-b border-border focus:outline-none focus:border-[#00b7ff] w-32"
-                    maxLength={20}
-                    minLength={3}
-                  />
+                    maxLength={20} minLength={3} />
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">@{profile.username}</p>
               )}
 
               {editing ? (
-                <textarea
-                  value={editForm.bio}
+                <textarea value={editForm.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                  placeholder="Your bio..."
-                  className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm mt-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/50"
-                />
+                  placeholder={t("profile_bio_ph")}
+                  className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm mt-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/50" />
               ) : (
                 profile.bio && <p className="text-sm text-muted-foreground mt-1">{profile.bio}</p>
               )}
@@ -384,14 +262,14 @@ export default function ProfilePage() {
             <div className="flex gap-2">
               {editing ? (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditing(false)}>{t("profile_cancel")}</Button>
                   <Button size="sm" onClick={handleSave}>
-                    <Save className="w-4 h-4" /> Save
+                    <Save className="w-4 h-4" /> {t("profile_save")}
                   </Button>
                 </>
               ) : (
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                  <Edit3 className="w-4 h-4" /> Edit Profile
+                  <Edit3 className="w-4 h-4" /> {t("profile_edit")}
                 </Button>
               )}
             </div>
@@ -402,7 +280,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="level-badge">{levelInfo.level}</div>
-                <span className="font-display font-semibold">Level {levelInfo.level}</span>
+                <span className="font-display font-semibold">{t("profile_level")} {levelInfo.level}</span>
               </div>
               <span className="text-sm text-muted-foreground">
                 {levelInfo.currentXp} / {levelInfo.xpForNextLevel} XP
@@ -411,16 +289,15 @@ export default function ProfilePage() {
             <Progress value={levelInfo.xpProgress} className="h-3" />
           </div>
 
-          {/* Quick stats — Streak, Total XP, Member since */}
+          {/* Quick stats */}
           <div className="grid grid-cols-3 gap-3 mt-6">
             {[
-              { label: "Streak", value: profile.streak_current, suffix: "days", icon: "🔥" },
-              { label: "Total XP", value: profile.xp.toLocaleString(), suffix: "pts", icon: "⚡" },
+              { label: t("profile_streak"), value: profile.streak_current, suffix: t("profile_days"), icon: "🔥" },
+              { label: t("profile_total_xp"), value: profile.xp.toLocaleString(), suffix: t("profile_pts"), icon: "⚡" },
               {
-                label: "Member since",
-                value: new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
-                suffix: "",
-                icon: "📅",
+                label: t("profile_member_since"),
+                value: new Date(profile.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+                suffix: "", icon: "📅",
               },
             ].map((s) => (
               <div key={s.label} className="rounded-xl bg-muted p-3 text-center">
@@ -433,11 +310,11 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* ── Stat cards — only XP + Level (removed Study Time, Streak, Tasks, Quizzes) */}
+      {/* ── Stat cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4">
         {[
-          { label: "Total XP", value: profile.xp.toLocaleString(), icon: Zap, color: "text-[#00b7ff]" },
-          { label: "Current Level", value: levelInfo.level, icon: TrendingUp, color: "text-blue-400" },
+          { label: t("profile_total_xp"), value: profile.xp.toLocaleString(), icon: Zap, color: "text-[#00b7ff]" },
+          { label: t("profile_current_level"), value: levelInfo.level, icon: TrendingUp, color: "text-blue-400" },
         ].map((stat) => (
           <Card key={stat.label} className="card-hover">
             <CardContent className="p-4">
@@ -451,12 +328,11 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {/* ── XP chart (kept) ──────────────────────────────────────────────── */}
+      {/* ── XP chart ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[#00b7ff]" />
-            XP Earned This Week
+            <Zap className="w-4 h-4 text-[#00b7ff]" /> {t("profile_xp_week")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -469,41 +345,24 @@ export default function ProfilePage() {
                     <stop offset="95%" stopColor="#00b7ff" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis
-                  dataKey="day"
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                  }}
-                  formatter={(v) => [`+${v} XP`, "Earned"]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="xp"
-                  stroke="#00b7ff"
-                  strokeWidth={2}
-                  fill="url(#xpGradient)"
-                />
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: "12px" }}
+                  formatter={(v) => [`+${v} XP`, t("profile_earned")]} />
+                <Area type="monotone" dataKey="xp" stroke="#00b7ff" strokeWidth={2} fill="url(#xpGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Public Showcase section ───────────────────────────────────────── */}
+      {/* ── Showcase ──────────────────────────────────────────────────── */}
       {showcase.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-[#00b7ff]" />
-              Work Showcase
+              <GraduationCap className="w-4 h-4 text-[#00b7ff]" /> {t("profile_showcase")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -512,57 +371,35 @@ export default function ProfilePage() {
                 const config = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.other;
                 const Icon = config.icon;
                 return (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 hover:bg-muted/50 transition-colors"
-                  >
+                  <div key={item.id}
+                    className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 hover:bg-muted/50 transition-colors">
                     <div className="flex items-start gap-3">
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `${config.color}20` }}
-                      >
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: `${config.color}20` }}>
                         <Icon className="w-4 h-4" style={{ color: config.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-display font-bold text-sm truncate">{item.title}</p>
-                        {item.subject && (
-                          <p className="text-xs text-muted-foreground">{item.subject}</p>
-                        )}
+                        {item.subject && <p className="text-xs text-muted-foreground">{item.subject}</p>}
                       </div>
                     </div>
-
                     {item.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 pl-12">
-                        {item.description}
-                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 pl-12">{item.description}</p>
                     )}
-
                     <div className="flex items-center gap-2 pl-12 flex-wrap">
-                      <Badge
-                        className="text-[11px]"
-                        style={{
-                          background: `${config.color}15`,
-                          color: config.color,
-                          border: `1px solid ${config.color}30`,
-                        }}
-                      >
-                        {config.label}
+                      <Badge className="text-[11px]" style={{ background: `${config.color}15`, color: config.color, border: `1px solid ${config.color}30` }}>
+                        {config.labelKey}
                       </Badge>
                       {item.external_url && (
-                        <a
-                          href={item.external_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-[#00b7ff] hover:underline"
-                        >
-                          <ExternalLink className="w-3 h-3" /> Link
+                        <a href={item.external_url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-[#00b7ff] hover:underline">
+                          <ExternalLink className="w-3 h-3" /> {t("showcase_view_link")}
                         </a>
                       )}
                     </div>
-
                     {item.file_url && (
                       <div className="pl-12">
-                        <PdfViewer url={item.file_url} title={item.title} />
+                        <PdfViewer url={item.file_url} title={item.title} t={t} />
                       </div>
                     )}
                   </div>
@@ -573,13 +410,12 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {/* ── Recent achievements ───────────────────────────────────────────── */}
+      {/* ── Recent achievements ────────────────────────────────────────── */}
       {achievements.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-[#00b7ff]" />
-              Recent Achievements
+              <Trophy className="w-4 h-4 text-[#00b7ff]" /> {t("profile_achievements")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -595,6 +431,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="ml-auto text-right shrink-0">
                     <p className="text-xs font-bold text-[#00b7ff]">+{ua.achievement?.xp_reward} XP</p>
+                    <p className="text-[10px] text-muted-foreground">{t("profile_earned")}</p>
                   </div>
                 </div>
               ))}

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/components/providers/LanguageContext";
 import {
   Sparkles, Upload, FileText, X, Check, ChevronRight,
   Loader2, Trophy, Zap, Brain, RotateCcw, ChevronLeft,
@@ -26,10 +27,10 @@ interface Question {
 }
 
 const DIFFICULTY_CONFIG = {
-  easy: { label: "Easy", color: "text-green-400", bg: "bg-green-400/10 border-green-400/30", active: "bg-green-400 text-[#0D0D18]", emoji: "" },
-  medium: { label: "Medium", color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/30", active: "bg-yellow-400 text-[#0D0D18]", emoji: "" },
-  hard: { label: "Hard", color: "text-red-400", bg: "bg-red-400/10 border-red-400/30", active: "bg-red-400 text-[#0D0D18]", emoji: "" },
-  mixed: { label: "Mixed", color: "text-[#00b7ff]", bg: "bg-[#00b7ff]/10 border-[#00b7ff]/30", active: "bg-[#00b7ff] text-[#0D0D18]", emoji: "" },
+  easy: { labelKey: "quiz_easy" as const, color: "text-green-400", bg: "bg-green-400/10 border-green-400/30", active: "bg-green-400 text-[#0D0D18]", emoji: "" },
+  medium: { labelKey: "quiz_medium" as const, color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/30", active: "bg-yellow-400 text-[#0D0D18]", emoji: "" },
+  hard: { labelKey: "quiz_hard" as const, color: "text-red-400", bg: "bg-red-400/10 border-red-400/30", active: "bg-red-400 text-[#0D0D18]", emoji: "" },
+  mixed: { labelKey: "quiz_mixed" as const, color: "text-[#00b7ff]", bg: "bg-[#00b7ff]/10 border-[#00b7ff]/30", active: "bg-[#00b7ff] text-[#0D0D18]", emoji: "" },
 };
 
 const QUESTION_COUNTS = [5, 10, 15, 20];
@@ -37,21 +38,17 @@ const QUESTION_COUNTS = [5, 10, 15, 20];
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function QuizPage() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const router = useRouter();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Stage
   const [stage, setStage] = useState<QuizStage>("upload");
-
-  // Upload state
   const [file, setFile] = useState<File | null>(null);
   const [quizTitle, setQuizTitle] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("mixed");
   const [questionCount, setQuestionCount] = useState(10);
   const [dragOver, setDragOver] = useState(false);
-
-  // Quiz state
   const [questions, setQuestions] = useState<Question[]>([]);
   const [autoSummary, setAutoSummary] = useState("");
   const [currentQ, setCurrentQ] = useState(0);
@@ -60,7 +57,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<(number | null)[]>([]);
   const [hintText, setHintText] = useState("");
   const [loadingHint, setLoadingHint] = useState(false);
-  const [generatingMsg, setGeneratingMsg] = useState("Analyzing your document...");
+  const [generatingMsg, setGeneratingMsg] = useState("");
 
   // ─── File handling ──────────────────────────────────────────────────────────
   const handleFile = (f: File) => {
@@ -88,12 +85,13 @@ export default function QuizPage() {
     setStage("generating");
 
     const msgs = [
-      "Analyzing your document...",
-      "Extracting key concepts...",
-      "Crafting smart questions...",
-      "Adding hints and explanations...",
-      "Almost ready...",
+      t("quiz_analyzing"),
+      t("quiz_extracting"),
+      t("quiz_crafting"),
+      t("quiz_adding"),
+      t("quiz_almost"),
     ];
+    setGeneratingMsg(msgs[0]);
     let mi = 0;
     const interval = setInterval(() => {
       mi = (mi + 1) % msgs.length;
@@ -101,18 +99,15 @@ export default function QuizPage() {
     }, 2000);
 
     try {
-      // 1. Parse PDF
       const formData = new FormData();
       formData.append("file", file);
       const parseRes = await fetch("/api/pdf/parse", { method: "POST", body: formData });
       const parseData = await parseRes.json();
       if (!parseData.text) throw new Error("Could not extract text from PDF");
 
-      // 2. Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
 
-      // 3. Create quiz record
       const { data: quiz } = await supabase.from("quizzes").insert({
         user_id: user.id,
         title: quizTitle || "Untitled Quiz",
@@ -121,7 +116,6 @@ export default function QuizPage() {
         question_count: questionCount,
       }).select().single();
 
-      // 4. Generate questions
       const genRes = await fetch("/api/quiz/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,7 +131,6 @@ export default function QuizPage() {
       const genData = await genRes.json();
       if (!genData.questions) throw new Error(genData.error || "Generation failed");
 
-      // 5. Use auto title if user didn't provide one
       if (!quizTitle && genData.autoTitle) setQuizTitle(genData.autoTitle);
       if (genData.autoSummary) setAutoSummary(genData.autoSummary);
 
@@ -207,29 +200,15 @@ export default function QuizPage() {
   };
 
   // ─── Results ────────────────────────────────────────────────────────────────
-  const score: number = answers.reduce(
-    (acc: number, ans: number | null, i: number) => {
-      if (ans === null) return acc;
+  const score: number = answers.reduce((acc: number, ans: number | null, i: number) => {
+    if (ans === null) return acc;
+    const option = questions[i]?.options[ans];
+    if (!option) return acc;
+    return acc + (option.correct ? 1 : 0);
+  }, 0);
 
-      const option = questions[i]?.options[ans];
-
-      if (!option) return acc;
-
-      return acc + (option.correct ? 1 : 0);
-    },
-    0
-  );
-
-  const pct: number = questions.length
-    ? Math.round((score / questions.length) * 100)
-    : 0;
-
-  const xpEarned: number =
-    pct >= 100 ? 150 :
-      pct >= 80 ? 100 :
-        pct >= 60 ? 75 :
-          25;
-
+  const pct: number = questions.length ? Math.round((score / questions.length) * 100) : 0;
+  const xpEarned: number = pct >= 100 ? 150 : pct >= 80 ? 100 : pct >= 60 ? 75 : 25;
 
   const reset = () => {
     setStage("upload");
@@ -251,9 +230,9 @@ export default function QuizPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="font-display font-black text-2xl flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-[#00b7ff]" /> AI Quiz Generator
+          <Sparkles className="w-6 h-6 text-[#00b7ff]" /> {t("quiz_title")}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Upload a PDF and get an instant personalized quiz</p>
+        <p className="text-muted-foreground text-sm mt-1">{t("quiz_subtitle")}</p>
       </div>
 
       {/* Drop zone */}
@@ -277,7 +256,7 @@ export default function QuizPage() {
               </div>
               <button onClick={(e) => { e.stopPropagation(); setFile(null); }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors">
-                <X className="w-3 h-3" /> Remove
+                <X className="w-3 h-3" /> {t("quiz_remove")}
               </button>
             </>
           ) : (
@@ -286,28 +265,27 @@ export default function QuizPage() {
                 <Upload className="w-7 h-7 text-muted-foreground" />
               </div>
               <div>
-                <p className="font-semibold text-sm">Drop your PDF here</p>
-                <p className="text-xs text-muted-foreground mt-1">or click to browse · max 10MB</p>
+                <p className="font-semibold text-sm">{t("quiz_drop")}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("quiz_drop_sub")}</p>
               </div>
             </>
           )}
         </div>
-        <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+        <input ref={fileInputRef} type="file" accept=".pdf" className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
       </div>
 
       {/* Quiz title */}
       <div className="space-y-2">
-        <label className="text-sm font-semibold">Quiz Title <span className="text-muted-foreground font-normal">(optional — AI will suggest one)</span></label>
-        <Input
-          placeholder="e.g. Chapter 3: Cell Biology"
-          value={quizTitle}
-          onChange={(e) => setQuizTitle(e.target.value)}
-        />
+        <label className="text-sm font-semibold">
+          {t("quiz_quiz_title")} <span className="text-muted-foreground font-normal">{t("quiz_title_hint")}</span>
+        </label>
+        <Input placeholder={t("quiz_title_ph")} value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} />
       </div>
 
       {/* Difficulty */}
       <div className="space-y-2">
-        <label className="text-sm font-semibold">Difficulty</label>
+        <label className="text-sm font-semibold">{t("quiz_difficulty")}</label>
         <div className="grid grid-cols-4 gap-2">
           {(Object.keys(DIFFICULTY_CONFIG) as Difficulty[]).map((d) => {
             const cfg = DIFFICULTY_CONFIG[d];
@@ -315,7 +293,7 @@ export default function QuizPage() {
               <button key={d} onClick={() => setDifficulty(d)}
                 className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-150
                   ${difficulty === d ? cfg.active : cfg.bg + " " + cfg.color + " hover:brightness-110"}`}>
-                {cfg.emoji} {cfg.label}
+                {cfg.emoji} {t(cfg.labelKey)}
               </button>
             );
           })}
@@ -324,7 +302,7 @@ export default function QuizPage() {
 
       {/* Question count */}
       <div className="space-y-2">
-        <label className="text-sm font-semibold">Number of Questions</label>
+        <label className="text-sm font-semibold">{t("quiz_num_questions")}</label>
         <div className="flex gap-2">
           {QUESTION_COUNTS.map((n) => (
             <button key={n} onClick={() => setQuestionCount(n)}
@@ -337,8 +315,7 @@ export default function QuizPage() {
       </div>
 
       <Button onClick={generateQuiz} disabled={!file} className="w-full h-12 text-base font-bold">
-        <Sparkles className="w-5 h-5" />
-        Generate Quiz
+        <Sparkles className="w-5 h-5" /> {t("quiz_generate")}
       </Button>
     </div>
   );
@@ -354,7 +331,7 @@ export default function QuizPage() {
       </div>
       <div className="text-center space-y-2">
         <p className="font-display font-bold text-xl">{generatingMsg}</p>
-        <p className="text-sm text-muted-foreground">This usually takes 10–20 seconds</p>
+        <p className="text-sm text-muted-foreground">{t("quiz_wait")}</p>
       </div>
       <div className="flex gap-1">
         {[0, 1, 2].map((i) => (
@@ -371,7 +348,7 @@ export default function QuizPage() {
     const correctIdx = q.options.findIndex((o) => o.correct);
     const isCorrect = selected === correctIdx;
     const diffCfg = DIFFICULTY_CONFIG[q.difficulty] || DIFFICULTY_CONFIG.medium;
-    const progress = ((currentQ) / questions.length) * 100;
+    const progress = (currentQ / questions.length) * 100;
 
     return (
       <div className="max-w-2xl mx-auto space-y-5">
@@ -379,12 +356,12 @@ export default function QuizPage() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="font-display font-bold text-sm text-muted-foreground">
-              Question {currentQ + 1} of {questions.length}
+              {t("quiz_question")} {currentQ + 1} {t("quiz_of")} {questions.length}
             </p>
             {quizTitle && <p className="font-display font-black text-lg">{quizTitle}</p>}
           </div>
           <span className={`px-2.5 py-1 rounded-full border text-xs font-bold ${diffCfg.bg} ${diffCfg.color}`}>
-            {diffCfg.emoji} {diffCfg.label}
+            {diffCfg.emoji} {t(diffCfg.labelKey)}
           </span>
         </div>
 
@@ -408,11 +385,10 @@ export default function QuizPage() {
                 else if (i === selected && !isCorrect) style = "border-red-400 bg-red-400/10 text-red-400";
                 else style = "border-border opacity-50";
               }
-
               return (
                 <button key={i} onClick={() => handleAnswer(i)} disabled={answered}
                   className={`w-full text-left flex items-center gap-3 p-4 rounded-xl border transition-all duration-150 ${style}`}>
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0
                     ${answered && i === correctIdx ? "bg-green-400 text-[#0D0D18]"
                       : answered && i === selected && !isCorrect ? "bg-red-400 text-[#0D0D18]"
                         : "bg-muted"}`}>
@@ -425,33 +401,30 @@ export default function QuizPage() {
             })}
           </div>
 
-          {/* After answer: explanation + AI hint */}
+          {/* After answer */}
           {answered && (
             <div className="space-y-3 pt-1">
-              {/* Result badge */}
               <div className={`flex items-center gap-2 text-sm font-semibold ${isCorrect ? "text-green-400" : "text-red-400"}`}>
-                {isCorrect ? <><Check className="w-4 h-4" /> Correct! +XP</> : <><X className="w-4 h-4" /> Incorrect</>}
+                {isCorrect
+                  ? <><Check className="w-4 h-4" /> {t("quiz_correct")}</>
+                  : <><X className="w-4 h-4" /> {t("quiz_incorrect")}</>}
               </div>
-
-              {/* Explanation */}
               <div className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
-                <p className="font-semibold text-foreground text-xs uppercase tracking-wider mb-1">Explanation</p>
+                <p className="font-semibold text-foreground text-xs uppercase tracking-wider mb-1">{t("quiz_explanation")}</p>
                 {q.explanation}
               </div>
-
-              {/* AI Smart Hint (only for wrong answers) */}
               {!isCorrect && (
                 <div className="space-y-2">
                   {!hintText ? (
                     <Button variant="outline" size="sm" onClick={getHint} disabled={loadingHint}
                       className="flex items-center gap-2 text-[#00b7ff] border-[#00b7ff]/30 hover:bg-[#00b7ff]/10">
                       {loadingHint ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lightbulb className="w-3.5 h-3.5" />}
-                      {loadingHint ? "Getting AI feedback..." : "Get AI explanation"}
+                      {loadingHint ? t("quiz_getting_ai") : t("quiz_get_ai")}
                     </Button>
                   ) : (
                     <div className="rounded-xl bg-[#00b7ff]/10 border border-[#00b7ff]/20 p-3 space-y-1">
                       <p className="text-xs font-bold text-[#00b7ff] flex items-center gap-1">
-                        <Lightbulb className="w-3 h-3" /> AI Tutor
+                        <Lightbulb className="w-3 h-3" /> {t("quiz_ai_tutor")}
                       </p>
                       <p className="text-sm text-foreground">{hintText}</p>
                     </div>
@@ -462,14 +435,11 @@ export default function QuizPage() {
           )}
         </div>
 
-        {/* Next button */}
         {answered && (
           <Button onClick={nextQuestion} className="w-full h-11 font-bold">
-            {currentQ + 1 >= questions.length ? (
-              <><Trophy className="w-4 h-4" /> See Results</>
-            ) : (
-              <>Next Question <ChevronRight className="w-4 h-4" /></>
-            )}
+            {currentQ + 1 >= questions.length
+              ? <><Trophy className="w-4 h-4" /> {t("quiz_see_results")}</>
+              : <>{t("quiz_next")} <ChevronRight className="w-4 h-4" /></>}
           </Button>
         )}
       </div>
@@ -479,7 +449,6 @@ export default function QuizPage() {
   // ─── RENDER: Results ────────────────────────────────────────────────────────
   if (stage === "results") return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Score card */}
       <div className="rounded-2xl border border-border bg-card p-8 text-center space-y-4">
         <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-3xl font-black
           bg-gradient-to-br from-[#00b7ff]/20 to-[#00b7ff]/5 border-2 border-[#00b7ff]/30">
@@ -487,30 +456,26 @@ export default function QuizPage() {
         </div>
         <div>
           <p className="font-display font-black text-5xl text-[#00b7ff]">{pct}%</p>
-          <p className="text-muted-foreground mt-1">{score} / {questions.length} correct</p>
+          <p className="text-muted-foreground mt-1">{score} / {questions.length} {t("quiz_correct_label")}</p>
           {quizTitle && <p className="font-semibold text-sm mt-2">{quizTitle}</p>}
           {autoSummary && <p className="text-xs text-muted-foreground mt-1">{autoSummary}</p>}
         </div>
-
-        {/* XP earned */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00b7ff]/10 border border-[#00b7ff]/20">
           <Zap className="w-4 h-4 text-[#00b7ff]" />
-          <span className="font-bold text-[#00b7ff]">+{xpEarned} XP earned</span>
+          <span className="font-bold text-[#00b7ff]">+{xpEarned} {t("quiz_xp_earned")}</span>
         </div>
-
-        {/* Difficulty breakdown */}
         <div className="grid grid-cols-3 gap-3 pt-2">
           {(["easy", "medium", "hard"] as const).map((d) => {
             const cfg = DIFFICULTY_CONFIG[d];
             const dQs = questions.filter((q) => q.difficulty === d);
-            const dCorrect = dQs.filter((q, qi) => {
+            const dCorrect = dQs.filter((q) => {
               const globalIdx = questions.indexOf(q);
               return answers[globalIdx] === q.options.findIndex((o) => o.correct);
             }).length;
             if (dQs.length === 0) return null;
             return (
               <div key={d} className={`rounded-xl border p-3 ${cfg.bg}`}>
-                <p className={`text-xs font-bold ${cfg.color}`}>{cfg.emoji} {cfg.label}</p>
+                <p className={`text-xs font-bold ${cfg.color}`}>{cfg.emoji} {t(cfg.labelKey)}</p>
                 <p className="font-black text-lg mt-1">{dCorrect}/{dQs.length}</p>
               </div>
             );
@@ -518,14 +483,15 @@ export default function QuizPage() {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-3">
         <Button onClick={reset} variant="outline" className="flex-1 h-11">
-          <RotateCcw className="w-4 h-4" /> New Quiz
+          <RotateCcw className="w-4 h-4" /> {t("quiz_new_quiz")}
         </Button>
-        <Button onClick={() => { setCurrentQ(0); setSelected(null); setAnswered(false); setAnswers(new Array(questions.length).fill(null)); setHintText(""); setStage("taking"); }}
-          className="flex-1 h-11 font-bold">
-          <RotateCcw className="w-4 h-4" /> Retry
+        <Button onClick={() => {
+          setCurrentQ(0); setSelected(null); setAnswered(false);
+          setAnswers(new Array(questions.length).fill(null)); setHintText(""); setStage("taking");
+        }} className="flex-1 h-11 font-bold">
+          <RotateCcw className="w-4 h-4" /> {t("quiz_retry")}
         </Button>
       </div>
     </div>
