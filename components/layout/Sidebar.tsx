@@ -135,7 +135,7 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
         {hm && (
           <div className="px-4 pb-2">
             <button onClick={() => setClockOpen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors">
-              <span className="font-mono font-bold text-base text-foreground tracking-widest">{hms}</span>
+              <span suppressHydrationWarning className="font-mono font-bold text-base text-foreground tracking-widest">{hms}</span>
             </button>
           </div>
         )}
@@ -154,10 +154,10 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
             <X className="w-6 h-6" />
           </button>
           <div className="space-y-4 text-center select-none">
-            <p className="text-white/30 text-sm uppercase tracking-[0.3em] font-semibold">
+            <p suppressHydrationWarning className="text-white/30 text-sm uppercase tracking-[0.3em] font-semibold">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             </p>
-            <div className="font-mono font-bold text-white" style={{ fontSize: "clamp(4rem, 14vw, 11rem)", letterSpacing: "-0.02em", textShadow: "0 0 80px rgba(0,183,255,0.25)" }}>
+            <div suppressHydrationWarning className="font-mono font-bold text-white" style={{ fontSize: "clamp(4rem, 14vw, 11rem)", letterSpacing: "-0.02em", textShadow: "0 0 80px rgba(0,183,255,0.25)" }}>
               {hms}
             </div>
             <p className="text-white/20 text-sm">Click anywhere to close · Press Esc</p>
