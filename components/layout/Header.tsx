@@ -15,7 +15,7 @@ interface HeaderProps {
 
 export function Header({ profile, onMenuToggle }: HeaderProps) {
   const { theme, setTheme } = useTheme();
-  const { t, language } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -25,6 +25,7 @@ export function Header({ profile, onMenuToggle }: HeaderProps) {
   };
 
   return (
+    // ✅ Header flex direction always LTR — layout never flips
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-40">
       <div className="flex items-center gap-4">
         <Button
@@ -36,9 +37,10 @@ export function Header({ profile, onMenuToggle }: HeaderProps) {
           <Menu className="w-4 h-4" />
         </Button>
 
-        <div>
+        {/* ✅ Only the text content gets RTL direction, not the layout */}
+        <div dir={isRTL ? "rtl" : "ltr"}>
           <p className="font-display font-bold text-sm">
-            {getGreeting()}{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
+            {getGreeting()}{profile?.full_name ? `، ${profile.full_name.split(" ")[0]}` : ""}
           </p>
           <p className="text-xs text-muted-foreground">
             {new Date().toLocaleDateString(
@@ -49,6 +51,7 @@ export function Header({ profile, onMenuToggle }: HeaderProps) {
         </div>
       </div>
 
+      {/* Right side — always stays on the right */}
       <div className="flex items-center gap-2">
         <NotificationBell />
         <LanguageSwitcher />

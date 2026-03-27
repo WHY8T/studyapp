@@ -6,13 +6,12 @@ import { Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LANGUAGES = [
-    { code: "en" as Language, label: "English", flag: "🇬🇧", short: "EN" },
-    { code: "ar" as Language, label: "العربية", flag: "🇩🇿", short: "AR" },
-    { code: "fr" as Language, label: "Français", flag: "🇫🇷", short: "FR" },
+    { code: "en" as Language, label: "English", short: "EN" },
+    { code: "ar" as Language, label: "العربية", short: "AR" },
+    { code: "fr" as Language, label: "Français", short: "FR" },
 ];
 
 interface LanguageSwitcherProps {
-    // dark = for landing page dark bg, default = for dashboard header
     variant?: "dark" | "default";
 }
 
@@ -20,7 +19,6 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
     const { language, setLanguage } = useLanguage();
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
-
     const current = LANGUAGES.find((l) => l.code === language)!;
 
     useEffect(() => {
@@ -43,14 +41,14 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
                 )}
             >
                 <Globe className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold">{current.short}</span>
-                <span className="text-xs">{current.flag}</span>
+                {/* Text only — no flag emojis, they break on Windows/Chrome */}
+                <span className="text-xs font-bold tracking-wide">{current.short}</span>
             </button>
 
             {open && (
                 <div
                     className={cn(
-                        "absolute top-full mt-2 right-0 z-50 rounded-xl border shadow-xl overflow-hidden min-w-[140px]",
+                        "absolute top-full mt-2 right-0 z-50 rounded-xl border shadow-xl overflow-hidden min-w-[130px]",
                         variant === "dark"
                             ? "bg-[#0D0D18] border-white/15"
                             : "bg-card border-border"
@@ -71,7 +69,15 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
                                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                             )}
                         >
-                            <span className="text-base">{lang.flag}</span>
+                            {/* Colored dot instead of flag emoji */}
+                            <span className={cn(
+                                "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black",
+                                lang.code === "en" ? "bg-blue-500/20 text-blue-400" :
+                                    lang.code === "ar" ? "bg-green-500/20 text-green-400" :
+                                        "bg-purple-500/20 text-purple-400"
+                            )}>
+                                {lang.short}
+                            </span>
                             <span>{lang.label}</span>
                             {language === lang.code && (
                                 <span className="ml-auto text-xs opacity-60">✓</span>
