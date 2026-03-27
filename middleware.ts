@@ -4,7 +4,9 @@ import type { CookieOptions } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
-    request,
+    request: {
+      headers: request.headers,
+    },
   });
 
   const supabase = createServerClient(
@@ -23,6 +25,19 @@ export async function middleware(request: NextRequest) {
             options?: CookieOptions;
           }>
         ) {
+          // Write cookies onto the REQUEST so server components can read them
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
+
+          // Recreate response with updated request headers
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+
+          // Also write cookies onto the RESPONSE so the browser stores them
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
@@ -31,6 +46,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // IMPORTANT: use getUser() not getSession() — getSession() is not safe in middleware
   const {
     data: { user },
   } = await supabase.auth.getUser();
