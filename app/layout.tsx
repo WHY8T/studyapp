@@ -25,6 +25,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Nahda.Edu",
   description: "Your modern student productivity platform",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
