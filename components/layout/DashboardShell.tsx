@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import type { Profile } from "@/types";
-
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 export function DashboardShell({
     profile,
     children,
@@ -13,6 +13,7 @@ export function DashboardShell({
     children: React.ReactNode;
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    usePushNotifications();
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
