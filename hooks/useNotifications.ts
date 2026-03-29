@@ -164,7 +164,23 @@ export function useNotifications() {
     }, [supabase]);
 
     const unreadCount = notifications.filter((n) => !n.read).length;
+    // Add this useEffect before the return
+    useEffect(() => {
+        if (unreadCount > 0) {
+            document.title = `(${unreadCount}) Nahda.Edu`;
+        } else {
+            document.title = "Nahda.Edu";
+        }
+    }, [unreadCount]);
 
+    return {
+        notifications,
+        loading,
+        unreadCount,
+        markAsRead,
+        markAllAsRead,
+        refetch: fetchNotifications,
+    };
     return {
         notifications,
         loading,
