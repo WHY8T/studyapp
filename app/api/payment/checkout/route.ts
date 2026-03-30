@@ -34,29 +34,34 @@ export async function POST(request: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-    const product = await chargily.createProduct({
-        name: "StudyFlow Pro — Monthly",
-        description: "Unlimited AI quiz generation",
-        metadata: { user_id: user.id },
-    });
+    try {
+        const product = await chargily.createProduct({
+            name: "Nahda.Edu Pro — Monthly",
+            description: "Unlimited AI quiz generation",
+            metadata: { user_id: user.id },
+        });
 
-    const price = await chargily.createPrice({
-        amount: MONTHLY_PRICE_DZD * 100,
-        currency: "dzd",
-        product_id: product.id,
-        metadata: { user_id: user.id },
-    });
+        const price = await chargily.createPrice({
+            amount: MONTHLY_PRICE_DZD * 100,
+            currency: "dzd",
+            product_id: product.id,
+            metadata: { user_id: user.id },
+        });
 
-    const checkout = await chargily.createCheckout({
-        items: [{ price: price.id, quantity: 1 }],
-        success_url: `${appUrl}/dashboard?payment=success`,
-        failure_url: `${appUrl}/quiz?payment=failed`,
-        locale: "ar",
-        metadata: {
-            user_id: user.id,
-            user_email: user.email,
-        },
-    });
+        const checkout = await chargily.createCheckout({
+            items: [{ price: price.id, quantity: 1 }],
+            success_url: `${appUrl}/dashboard?payment=success`,
+            failure_url: `${appUrl}/quiz?payment=failed`,
+            locale: "ar",
+            metadata: {
+                user_id: user.id,
+                user_email: user.email,
+            },
+        });
 
-    return NextResponse.json({ checkout_url: checkout.checkout_url });
+        return NextResponse.json({ checkout_url: checkout.checkout_url });
+    } catch (error: any) {
+        console.error("Chargily checkout error:", error);
+        return NextResponse.json({ error: error.message ?? "Payment error" }, { status: 500 });
+    }
 }
