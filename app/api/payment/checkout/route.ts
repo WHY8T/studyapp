@@ -61,7 +61,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ checkout_url: checkout.checkout_url });
     } catch (error: any) {
-        console.error("Chargily checkout error:", error);
+        console.error("FULL CHARGILY ERROR:", JSON.stringify(error, null, 2));
+        console.error("ERROR MESSAGE:", error?.message);
+        console.error("ERROR RESPONSE:", error?.response?.data);
         return NextResponse.json({ error: error.message ?? "Payment error" }, { status: 500 });
     }
 }
