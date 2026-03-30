@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const FREE_QUIZ_LIMIT = 10;
+const FREE_QUIZ_LIMIT = 2;
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const { text, questionCount, numQuestions, difficulty = "mixed", title } = body;
-  const count = questionCount ?? numQuestions ?? 10;
+  const count = questionCount ?? numQuestions ?? 2;
 
   if (!text) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
