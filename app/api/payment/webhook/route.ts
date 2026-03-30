@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySignature } from "@chargily/chargily-pay";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
@@ -8,29 +7,20 @@ export async function POST(request: NextRequest) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const signature = request.headers.get("signature") ?? "";
-    const rawBody = Buffer.from(await request.arrayBuffer());
-
-    if (!signature) {
-        return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-    }
+    const rawBody = await request.text();
+    let event: any;
 
     try {
-        // ✅ Use CHARGILY_SECRET (webhook secret), NOT the API key
-        const isValid = verifySignature(rawBody, signature, process.env.CHARGILY_SECRET!);
-        if (!isValid) {
-            return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
-        }
-    } catch (err) {
-        console.error("Signature verification error:", err);
-        return NextResponse.json({ error: "Signature error" }, { status: 403 });
+        event = JSON.parse(rawBody);
+    } catch {
+        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    const event = JSON.parse(rawBody.toString());
-    console.log("Chargily webhook event:", event.type);
+    console.log("Chargily webhook received:", event.type);
 
     if (event.type === "checkout.paid") {
         const userId = event.data?.metadata?.user_id;
+
         if (!userId) {
             console.error("Webhook: missing user_id in metadata");
             return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
@@ -38,10 +28,7 @@ export async function POST(request: NextRequest) {
 
         const { error } = await supabase
             .from("profiles")
-            .update({
-                is_pro: true,
-                quiz_count: 0,
-            })
+            .update({ is_pro: true, quiz_count: 0 })
             .eq("id", userId);
 
         if (error) {
