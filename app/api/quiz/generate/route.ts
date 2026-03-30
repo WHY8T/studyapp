@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-
 
 const FREE_QUIZ_LIMIT = 10;
 
@@ -47,7 +45,6 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  // ✅ Fix: read both "questionCount" (from frontend) and "numQuestions" (fallback)
   const { text, questionCount, numQuestions, difficulty = "mixed", title } = body;
   const count = questionCount ?? numQuestions ?? 10;
 
@@ -67,23 +64,52 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Generate ${count} ...`, // keep your exact prompt unchanged
+          content: `Generate ${count} quiz questions from the following text. Difficulty: ${difficulty}.
+
+Return ONLY a valid JSON object with this exact structure, no markdown, no explanation:
+{
+  "autoTitle": "short title for the quiz",
+  "autoSummary": "one sentence summary",
+  "questions": [
+    {
+      "question": "the question text",
+      "difficulty": "easy|medium|hard",
+      "explanation": "why the correct answer is right",
+      "hint": "a subtle hint without giving the answer away",
+      "options": [
+        { "text": "option A", "correct": false },
+        { "text": "option B", "correct": true },
+        { "text": "option C", "correct": false },
+        { "text": "option D", "correct": false }
+      ]
+    }
+  ]
+}
+
+Text to generate questions from:
+${text}`,
         },
       ],
     }),
   });
 
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("NVIDIA API error:", errorText);
+    return NextResponse.json({ error: "AI service error", details: errorText }, { status: 502 });
+  }
+
   const json = await res.json();
-  const responseText = json.choices[0].message.content ?? "";
+  const responseText = json.choices?.[0]?.message?.content ?? "";
 
   let parsed: { autoTitle?: string; autoSummary?: string; questions: any[] };
   try {
     parsed = JSON.parse(responseText.replace(/```json|```/g, "").trim());
   } catch {
+    console.error("Failed to parse AI response:", responseText);
     return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
   }
 
-  // ✅ Safety: validate each question has the right shape
   const questions = parsed.questions?.map((q: any) => ({
     question: q.question ?? "",
     difficulty: q.difficulty ?? difficulty,
