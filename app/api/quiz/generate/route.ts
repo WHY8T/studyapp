@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
+
 const FREE_QUIZ_LIMIT = 10;
 
 export async function POST(request: NextRequest) {
@@ -55,47 +55,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
   }
 
-  const completion = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [
-      {
-        role: "user",
-        content: `Generate ${count} multiple choice questions from the following text.
-Difficulty: ${difficulty}.
-
-Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
-{
-  "autoTitle": "Short descriptive title for this quiz",
-  "autoSummary": "One sentence summary of the source material",
-  "questions": [
-    {
-      "question": "Question text?",
-      "difficulty": "easy" | "medium" | "hard",
-      "options": [
-        { "text": "First option", "correct": false },
-        { "text": "Second option", "correct": true },
-        { "text": "Third option", "correct": false },
-        { "text": "Fourth option", "correct": false }
+  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "meta/llama-3.3-70b-instruct",
+      max_tokens: 2048,
+      messages: [
+        {
+          role: "user",
+          content: `Generate ${count} ...`, // keep your exact prompt unchanged
+        },
       ],
-      "explanation": "Why the correct answer is correct",
-      "hint": "A subtle hint without giving the answer away"
-    }
-  ]
-}
-
-Rules:
-- Each question must have exactly 4 options
-- Exactly one option must have "correct": true
-- Match difficulty distribution to: ${difficulty === "mixed" ? "mix of easy, medium, hard" : difficulty}
-- Never use markdown in your response
-
-Text:
-${text.slice(0, 12000)}`,
-      },
-    ],
+    }),
   });
 
-  const responseText = completion.choices[0].message.content ?? "";
+  const json = await res.json();
+  const responseText = json.choices[0].message.content ?? "";
 
   let parsed: { autoTitle?: string; autoSummary?: string; questions: any[] };
   try {

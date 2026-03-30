@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
+
 
 export async function POST(req: NextRequest) {
     try {
@@ -42,13 +42,21 @@ Write a SHORT response (2-3 sentences max) that:
 
 Do NOT say "Great question!" or be overly formal. Be direct and helpful.`;
 
-        const completion = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            max_tokens: 256,
-            messages: [{ role: "user", content: prompt }],
+        const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "meta/llama-3.3-70b-instruct",
+                max_tokens: 256,
+                messages: [{ role: "user", content: prompt }],
+            }),
         });
 
-        const feedback = completion.choices[0]?.message?.content ?? "";
+        const json = await res.json();
+        const feedback = json.choices[0]?.message?.content ?? "";
 
         return NextResponse.json({ feedback });
     } catch (error: any) {
