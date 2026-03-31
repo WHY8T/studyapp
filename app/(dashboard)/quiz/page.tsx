@@ -109,7 +109,7 @@ function UpgradeModal({ onClose }: { onClose: () => void }) {
           {/* Price */}
           <div className="space-y-1">
             <p className="font-display font-black text-4xl">
-              500 <span className="text-xl text-muted-foreground font-normal">DZD</span>
+              350 <span className="text-xl text-muted-foreground font-normal">DZD</span>
             </p>
             <p className="text-xs text-muted-foreground">per month • cancel anytime</p>
           </div>
@@ -122,7 +122,7 @@ function UpgradeModal({ onClose }: { onClose: () => void }) {
           >
             {loading
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting to payment...</>
-              : <><Crown className="w-4 h-4" /> Upgrade to Pro — 500 DZD/mo</>}
+              : <><Crown className="w-4 h-4" /> Upgrade to Pro — 350 DZD/mo</>}
           </Button>
 
           <p className="text-xs text-muted-foreground">
@@ -211,7 +211,7 @@ export default function QuizPage() {
       const { data: quiz } = await supabase.from("quizzes").insert({
         user_id: user.id,
         title: quizTitle || "Untitled Quiz",
-        description: parseData.text.slice(0, 500),
+        description: parseData.text.slice(0, 350),
         pdf_filename: file.name,
         question_count: questionCount,
       }).select().single();
@@ -482,7 +482,7 @@ export default function QuizPage() {
             </div>
 
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div className="h-full rounded-full bg-[#00b7ff] transition-all duration-500"
+              <div className="h-full rounded-full bg-[#00b7ff] transition-all duration-350"
                 style={{ width: `${progress}%` }} />
             </div>
 

@@ -5,4 +5,4 @@ export const chargily = new ChargilyClient({
     mode: (process.env.CHARGILY_MODE as "test" | "live") ?? "test",
 });
 
-export const MONTHLY_PRICE_DZD = 500; // 500 DZD/month — change to your price
+export const MONTHLY_PRICE_DZD = 350; // 500 DZD/month — change to your price
