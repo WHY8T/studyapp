@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePomodoro } from "@/hooks/usePomodoro";
 import { createClient } from "@/lib/supabase/client";
 import { awardXP, updateStreak } from "@/lib/gamification";
@@ -9,7 +9,10 @@ import { useLanguage } from "@/components/providers/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, RotateCcw, SkipForward, Settings, Coffee, Brain, Clock, CheckCircle2, Zap, X } from "lucide-react";
+import {
+  Play, Pause, RotateCcw, SkipForward, Settings,
+  Coffee, Brain, Clock, CheckCircle2, Zap, X,
+} from "lucide-react";
 import { cn, formatMinutes } from "@/lib/utils";
 import type { PomodoroPhase, PomodoroSettings } from "@/types";
 
@@ -26,9 +29,27 @@ function saveSettings(s: Partial<PomodoroSettings>) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch { }
 }
 
+// ── Click sound played on start ────────────────────────────────────────────
+function playClickSound() {
+  try {
+    const AudioCtx = (window as any).webkitAudioContext ?? window.AudioContext;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 600;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  } catch { }
+}
+
 export default function PomodoroPage() {
   const { toast } = useToast();
-  const { t, isRTL, language } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const [userId, setUserId] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -78,6 +99,7 @@ export default function PomodoroPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // ── Auth — timer works even when logged out ─────────────────────────────
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -86,6 +108,7 @@ export default function PomodoroPage() {
         supabase.from("subjects").select("*").eq("user_id", user.id).then(({ data }) => setSubjects(data ?? []));
         loadHistory(supabase, user.id);
       }
+      // If no user, timer still works — just no XP/history saved
     });
   }, []);
 
@@ -95,9 +118,27 @@ export default function PomodoroPage() {
   };
 
   const handleSessionComplete = async (durationMinutes: number, phase: PomodoroPhase) => {
-    if (phase !== "work" || !userId) return;
+    if (phase !== "work") return;
+
+    // ── Browser notification (works even when signed out) ──────────────────
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification("Focus session complete! 🎉", {
+          body: `${durationMinutes} min logged. Time for a break!`,
+          icon: "/favicon.ico",
+        });
+      } catch { }
+    }
+
+    // ── Save to DB only if logged in ───────────────────────────────────────
+    if (!userId) return;
+
     const supabase = createClient();
-    await supabase.from("pomodoro_sessions").insert({ user_id: userId, subject_id: subjectId, duration_minutes: durationMinutes, break_minutes: breakMinutes, completed: true, notes: sessionNotes || null, ended_at: new Date().toISOString() });
+    await supabase.from("pomodoro_sessions").insert({
+      user_id: userId, subject_id: subjectId, duration_minutes: durationMinutes,
+      break_minutes: breakMinutes, completed: true, notes: sessionNotes || null,
+      ended_at: new Date().toISOString(),
+    });
     if (subjectId) await supabase.rpc("increment_subject_minutes", { sid: subjectId, mins: durationMinutes });
     const { data: profile } = await supabase.from("profiles").select("total_study_minutes").eq("id", userId).single();
     await supabase.from("profiles").update({ total_study_minutes: (profile?.total_study_minutes ?? 0) + durationMinutes }).eq("id", userId);
@@ -110,10 +151,18 @@ export default function PomodoroPage() {
   const { phase, isRunning, formattedTime, progress, sessionCount, start, pause, reset, skipPhase, setPhase } =
     usePomodoro({ onSessionComplete: handleSessionComplete, settings: { workMinutes, breakMinutes, longBreakMinutes, sessionsBeforeLongBreak, autoStartBreak, autoStartWork } });
 
+  const handleStartPause = useCallback(() => {
+    if (!isRunning) {
+      playClickSound();
+      start();
+    } else {
+      pause();
+    }
+  }, [isRunning, start, pause]);
+
   const phaseColor = PHASE_COLORS[phase];
   const R = 90; const CIRC = 2 * Math.PI * R; const strokeDash = CIRC - (progress / 100) * CIRC;
   const todayMinutes = sessionHistory.filter((s) => new Date(s.started_at).toDateString() === new Date().toDateString()).reduce((sum, s) => sum + s.duration_minutes, 0);
-
   const PHASE_LABELS: Record<PomodoroPhase, string> = { work: t("pom_focus_time"), break: t("pom_break_time"), longBreak: t("pom_long_break_time") };
 
   const pendingSliders = [
@@ -147,39 +196,83 @@ export default function PomodoroPage() {
                 </button>
               ))}
             </div>
+
             <CardContent className="p-8 flex flex-col items-center gap-8">
               <div className="flex items-center gap-2">
-                {phase === "work" ? <Brain className="w-5 h-5" style={{ color: phaseColor }} /> : <Coffee className="w-5 h-5" style={{ color: phaseColor }} />}
-                <Badge style={{ background: `${phaseColor}20`, color: phaseColor, borderColor: `${phaseColor}40` }} className="border">{PHASE_LABELS[phase]}</Badge>
+                {phase === "work"
+                  ? <Brain className="w-5 h-5" style={{ color: phaseColor }} />
+                  : <Coffee className="w-5 h-5" style={{ color: phaseColor }} />}
+                <Badge style={{ background: `${phaseColor}20`, color: phaseColor, borderColor: `${phaseColor}40` }} className="border">
+                  {PHASE_LABELS[phase]}
+                </Badge>
               </div>
+
+              {/* Timer ring */}
               <div className="relative">
                 <svg width="220" height="220" viewBox="0 0 220 220">
-                  {isRunning && <circle cx="110" cy="110" r={R + 8} fill="none" stroke={phaseColor} strokeWidth="1" opacity="0.2" style={{ animation: "pulse-ring 2s ease-out infinite", transformOrigin: "50% 50%" }} />}
+                  {isRunning && (
+                    <circle cx="110" cy="110" r={R + 8} fill="none" stroke={phaseColor} strokeWidth="1" opacity="0.2"
+                      style={{ animation: "pulse-ring 2s ease-out infinite", transformOrigin: "50% 50%" }} />
+                  )}
                   <circle cx="110" cy="110" r={R} fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-                  <circle cx="110" cy="110" r={R} fill="none" stroke={phaseColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={strokeDash} className="timer-ring transition-all duration-1000" style={{ filter: `drop-shadow(0 0 8px ${phaseColor}60)` }} />
+                  <circle cx="110" cy="110" r={R} fill="none" stroke={phaseColor} strokeWidth="8" strokeLinecap="round"
+                    strokeDasharray={CIRC} strokeDashoffset={strokeDash}
+                    className="timer-ring transition-all duration-1000"
+                    style={{ filter: `drop-shadow(0 0 8px ${phaseColor}60)` }} />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="font-mono font-bold text-5xl tracking-tight">{formattedTime}</span>
                   <span className="text-xs text-muted-foreground mt-1">{t("pom_session")}{sessionCount + 1}</span>
                 </div>
               </div>
+
               {subjects.length > 0 && (
                 <div className="w-full max-w-xs">
-                  <select value={subjectId ?? ""} onChange={(e) => setSubjectId(e.target.value || null)} className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime/50">
+                  <select value={subjectId ?? ""} onChange={(e) => setSubjectId(e.target.value || null)}
+                    className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime/50">
                     <option value="">{t("pom_no_subject")}</option>
                     {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
               )}
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={reset}><RotateCcw className="w-5 h-5" /></Button>
-                <Button size="xl" onClick={isRunning ? pause : start} className="w-20 h-20 rounded-full shadow-lg" style={{ background: phaseColor, color: "#0D0D18", boxShadow: `0 0 30px ${phaseColor}50` }}>
-                  {isRunning ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 translate-x-0.5" />}
-                </Button>
-                <Button variant="ghost" size="icon" onClick={skipPhase}><SkipForward className="w-5 h-5" /></Button>
+
+              {/* ── Controls — fixed play button ─────────────────────────── */}
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={reset}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </button>
+
+                {/* Play/Pause button — explicit size, no Button component */}
+                <button
+                  onClick={handleStartPause}
+                  className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                  style={{
+                    background: phaseColor,
+                    boxShadow: `0 0 30px ${phaseColor}50`,
+                  }}
+                >
+                  {isRunning
+                    ? <Pause className="w-8 h-8 text-[#0D0D18]" />
+                    : <Play className="w-8 h-8 text-[#0D0D18] translate-x-0.5" />
+                  }
+                </button>
+
+                <button
+                  onClick={skipPhase}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </button>
               </div>
+
               <div className="w-full max-w-xs">
-                <input type="text" placeholder={t("pom_working_on")} value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} className="w-full rounded-xl border border-border bg-transparent px-4 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-lime/50" dir={isRTL ? "rtl" : "ltr"} />
+                <input type="text" placeholder={t("pom_working_on")} value={sessionNotes}
+                  onChange={(e) => setSessionNotes(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-transparent px-4 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-lime/50"
+                  dir={isRTL ? "rtl" : "ltr"} />
               </div>
             </CardContent>
           </Card>
@@ -218,7 +311,8 @@ export default function PomodoroPage() {
               ) : (
                 sessionHistory.slice(0, 6).map((session) => (
                   <div key={session.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: session.subject?.color ? `${session.subject.color}20` : "hsl(var(--muted))" }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: session.subject?.color ? `${session.subject.color}20` : "hsl(var(--muted))" }}>
                       <CheckCircle2 className="w-4 h-4" style={{ color: session.subject?.color ?? "hsl(var(--muted-foreground))" }} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -249,15 +343,20 @@ export default function PomodoroPage() {
         </div>
       </div>
 
+      {/* Settings modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(8,8,15,0.85)", backdropFilter: "blur(6px)" }} onClick={() => setShowSettings(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(8,8,15,0.85)", backdropFilter: "blur(6px)" }}
+          onClick={() => setShowSettings(false)}>
           <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-lime" />
                 <h2 className="font-display font-bold text-base">{t("pom_settings_title")}</h2>
               </div>
-              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <div className="px-6 py-5 space-y-6">
               <div className="grid grid-cols-2 gap-6">
