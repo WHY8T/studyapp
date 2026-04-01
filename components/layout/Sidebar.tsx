@@ -13,6 +13,7 @@ import {
   Trophy, Users, User, LogOut, Flame, Zap, BarChart2, X, BookOpen,
 } from "lucide-react";
 import type { Profile } from "@/types";
+import { Calculator } from "lucide-react";
 
 function useClockTime() {
   const [time, setTime] = useState({ hm: "", hms: "" });
@@ -55,6 +56,7 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
     { href: "/friends", label: t("nav_friends"), icon: Users },
     { href: "/showcase", label: t("nav_showcase"), icon: BookOpen },
     { href: "/profile", label: t("nav_profile"), icon: User },
+    { href: "/calculator", label: "Calculator", icon: Calculator }
   ];
 
   useEffect(() => {
