@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import FloatingChat from "@/components/chat/FloatingChat";
 import type { Profile } from "@/types";
+import FloatingPomodoro from "@/components/pomodoro/FloatingPomodoro";
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +22,7 @@ export default async function DashboardLayout({
     <DashboardShell profile={profile as Profile | null}>
       {children}
       <FloatingChat />
+      <FloatingPomodoro />
     </DashboardShell>
   );
 }
