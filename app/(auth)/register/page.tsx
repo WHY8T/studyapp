@@ -114,6 +114,7 @@ export default function RegisterPage() {
         data: { full_name: fullName },
       },
     });
+    console.log("Supabase signup error:", error);
 
     if (error) {
       toast({ title: "Registration failed", description: error.message, variant: "destructive" });
