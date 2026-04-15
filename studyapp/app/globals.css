@@ -1,0 +1,298 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 50 30% 97%;
+    --foreground: 230 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 10%;
+    --primary: 197 100% 50%;
+    --primary-foreground: 230 25% 8%;
+    --secondary: 230 15% 90%;
+    --secondary-foreground: 230 25% 20%;
+    --muted: 230 15% 94%;
+    --muted-foreground: 230 15% 50%;
+    --accent: 197 100% 50%;
+    --accent-foreground: 230 25% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 15% 88%;
+    --input: 230 15% 88%;
+    --ring: 197 100% 40%;
+    --radius: 0.75rem;
+
+    --lime: #00b7ff;
+    --lime-dim: #56cfff;
+    --coral: #FF6B6B;
+    --surface-1: #FFFFFF;
+    --surface-2: #F5F5F0;
+    --surface-3: #EEEEE8;
+    --glow-lime: 0 0 20px rgba(0, 183, 255, 0.4);
+    --glow-coral: 0 0 20px rgba(255, 107, 107, 0.4);
+  }
+
+  .dark {
+    --background: 230 30% 5%;
+    --foreground: 210 20% 92%;
+    --card: 230 28% 8%;
+    --card-foreground: 210 20% 92%;
+    --popover: 230 28% 8%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 197 100% 50%;
+    --primary-foreground: 230 25% 8%;
+    --secondary: 230 20% 14%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 230 20% 12%;
+    --muted-foreground: 230 15% 50%;
+    --accent: 197 100% 50%;
+    --accent-foreground: 230 25% 8%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 20% 14%;
+    --input: 230 20% 14%;
+    --ring: 197 100% 50%;
+
+    --lime: #00b7ff;
+    --lime-dim: #56cfff;
+    --coral: #FF6B6B;
+    --surface-1: #0D0D18;
+    --surface-2: #12121F;
+    --surface-3: #1A1A2E;
+    --glow-lime: 0 0 30px rgba(0, 183, 255, 0.25);
+    --glow-coral: 0 0 30px rgba(255, 107, 107, 0.25);
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+    word-break: break-word;
+  }
+
+  p,
+  span,
+  div {
+    word-break: break-word;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-syne), sans-serif;
+  }
+
+  .font-body {
+    font-family: var(--font-dm-sans), sans-serif;
+  }
+
+  .font-mono {
+    font-family: var(--font-jetbrains), monospace;
+  }
+
+  .glass {
+    @apply backdrop-blur-xl border border-white/10;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .glass-strong {
+    @apply backdrop-blur-2xl border border-white/15;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .text-lime {
+    color: var(--lime);
+  }
+
+  .bg-lime {
+    background-color: var(--lime);
+  }
+
+  .border-lime {
+    border-color: var(--lime);
+  }
+
+  .text-coral {
+    color: var(--coral);
+  }
+
+  .bg-coral {
+    background-color: var(--coral);
+  }
+
+  .glow-lime {
+    box-shadow: var(--glow-lime);
+  }
+
+  .glow-coral {
+    box-shadow: var(--glow-coral);
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 2px;
+  }
+
+  .text-gradient-lime {
+    background: linear-gradient(135deg, #409dc2 0%, #008fc7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300;
+  }
+
+  .card-hover:hover {
+    @apply -translate-y-1;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  .level-badge {
+    @apply inline-flex items-center justify-center rounded-full font-display font-bold text-xs;
+    background: linear-gradient(135deg, #409dc2, #008fc7);
+    color: #0D0D18;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
+    box-shadow: 0 0 12px rgba(0, 183, 255, 0.5);
+  }
+
+  .streak-active {
+    background: linear-gradient(135deg, #FF6B35, #FF4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* RESPONSIVE HELPERS */
+
+  .responsive-container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .responsive-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6;
+  }
+
+  .responsive-buttons {
+    @apply flex flex-col sm:flex-row gap-4;
+  }
+
+  .responsive-heading {
+    @apply text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-tight;
+  }
+
+  .responsive-text {
+    @apply text-sm sm:text-base md:text-lg;
+  }
+}
+
+/* Timer */
+.timer-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Range input */
+input[type="range"] {
+  @apply appearance-none bg-transparent cursor-pointer w-full;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  @apply rounded-full h-2;
+  background: hsl(var(--muted));
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full -mt-1;
+  background: var(--lime);
+  box-shadow: 0 0 8px rgba(0, 183, 255, 0.5);
+}
+
+/* Focus */
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* Calendar */
+.react-calendar {
+  @apply bg-transparent border-0 w-full font-body;
+}
+
+.react-calendar__tile {
+  @apply text-xs sm:text-sm rounded-lg p-2;
+}
+
+/* Mobile fix */
+@media (max-width: 768px) {
+  h1 {
+    font-size: clamp(2rem, 8vw, 3.5rem);
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
+  }
+
+  .glass,
+  .glass-strong {
+    padding: 1rem;
+  }
+}
