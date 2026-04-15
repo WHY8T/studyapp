@@ -22,32 +22,16 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata = {
-
+export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
-  themeColor: '#00b7ff',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'StudyFlow',
-  },
-
   title: "Nahda.Edu",
   description: "The only productivity platform that makes studying addictive.",
   icons: {
-    // still in metadata object
-    icons: {
-      apple: '/icons/icon-192.png',
-    },
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-    ],
-    apple: "/apple-touch-icon.png",
+    icon: "/icons/icon-512x512.png",
+    apple: "/icons/icon-512x512.png",
+    shortcut: "/icons/icon-512x512.png",
   },
 };
-
 export default function RootLayout({
   children,
 }: {
