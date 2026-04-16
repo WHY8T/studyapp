@@ -22,9 +22,15 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Nahda.Edu",
   description: "The only productivity platform that makes studying addictive.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Nahda Edu",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -42,6 +48,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#00b7ff" />
+      </head>
       <body className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`}>
         <ThemeProvider
           attribute="class"
