@@ -1,7 +1,7 @@
 {
     "name": "Nahda Edu",
     "short_name": "Nahda Edu",
-    "description": "Your smart study companion",
+    "description": "The only productivity platform that makes studying addictive.",
     "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#00b7ff",
