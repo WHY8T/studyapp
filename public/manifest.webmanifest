@@ -1,0 +1,17 @@
+{
+    "name": "Nahda.Edu",
+    "short_name": "Nahda.Edu",
+    "description": "The only productivity platform that makes studying addictive.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#00b7ff",
+    "icons": [
+        {
+            "src": "/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
