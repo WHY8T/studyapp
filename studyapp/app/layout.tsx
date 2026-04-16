@@ -22,16 +22,19 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  manifest: '/manifest.webmanifest',
+export const metadata = {
   title: "Nahda.Edu",
   description: "The only productivity platform that makes studying addictive.",
   icons: {
-    icon: "/icons/icon-512x512.png",
-    apple: "/icons/icon-512x512.png",
-    shortcut: "/icons/icon-512x512.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
+
 export default function RootLayout({
   children,
 }: {
