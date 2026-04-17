@@ -3,25 +3,23 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload, FolderPlus, Search, Grid3X3, List, FileText,
-  Folder, MoreVertical, Trash2, Edit3, Move, Download,
-  ChevronRight, Home, Eye, BookOpen, ZoomIn, ZoomOut,
-  ChevronLeft, ChevronRight as ChevRight, X, Plus, Star,
-  StarOff, Filter, SortAsc, ArrowLeft,
+  Folder, MoreVertical, Trash2, Edit3, Download,
+  ChevronRight, Home, Eye, ZoomIn, ZoomOut,
+  X, Star, ArrowLeft, Maximize, Minimize,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PDFFile {
   id: string;
   name: string;
-  size: number;       // bytes
+  size: number;
   uploadedAt: Date;
   folderId: string | null;
   starred: boolean;
-  url: string;        // object URL or real URL
-  file?: File;        // held in memory for display
-  color?: string;     // folder accent color
+  url: string;       // object URL rebuilt from base64 on load
+  base64?: string;   // persisted in localStorage
 }
 
 interface PDFFolder {
@@ -50,7 +48,51 @@ function fmtDate(d: Date) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-// ── Context menu component ───────────────────────────────────────────────────
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+function serializeFiles(files: PDFFile[]) {
+  return files.map(({ url: _url, ...rest }) => rest); // strip live object URLs
+}
+
+function loadFiles(): PDFFile[] {
+  try {
+    const raw = localStorage.getItem("pdf-showcase-files");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Omit<PDFFile, "url">[];
+    return parsed.map((f) => ({
+      ...f,
+      uploadedAt: new Date(f.uploadedAt),
+      // rebuild object URL from stored base64
+      url: f.base64 ? `data:application/pdf;base64,${f.base64}` : "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function loadFolders(): PDFFolder[] {
+  try {
+    const raw = localStorage.getItem("pdf-showcase-folders");
+    if (!raw) return [];
+    return JSON.parse(raw).map((f: PDFFolder) => ({ ...f, createdAt: new Date(f.createdAt) }));
+  } catch {
+    return [];
+  }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]); // strip data URL prefix
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Context menu ──────────────────────────────────────────────────────────────
 
 interface CtxMenuProps {
   x: number; y: number;
@@ -90,7 +132,7 @@ function CtxMenu({ x, y, items, onClose }: CtxMenuProps) {
   );
 }
 
-// ── Fullscreen PDF Viewer ────────────────────────────────────────────────────
+// ── PDF Viewer ────────────────────────────────────────────────────────────────
 
 interface ViewerProps {
   file: PDFFile;
@@ -99,20 +141,43 @@ interface ViewerProps {
 
 function PDFViewer({ file, onClose }: ViewerProps) {
   const [zoom, setZoom] = useState(100);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
+  // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !document.fullscreenElement) onClose();
       if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(200, z + 10));
       if (e.key === "-") setZoom((z) => Math.max(50, z - 10));
+      if (e.key === "f" || e.key === "F") toggleFullscreen();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Track fullscreen state changes (e.g. user presses Esc in native fullscreen)
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await viewerRef.current?.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] bg-[#08080F] flex flex-col">
-      {/* Top bar */}
+    <div
+      ref={viewerRef}
+      className="fixed inset-0 z-[100] flex flex-col"
+      style={{ background: "#08080F" }}
+    >
+      {/* Toolbar */}
       <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 shrink-0 bg-[#0e0e1a]/80 backdrop-blur">
         <div className="flex items-center gap-3">
           <button
@@ -132,7 +197,7 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Zoom controls */}
+          {/* Zoom */}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
             <button
               onClick={() => setZoom((z) => Math.max(50, z - 10))}
@@ -149,6 +214,16 @@ function PDFViewer({ file, onClose }: ViewerProps) {
             </button>
           </div>
 
+          {/* Fullscreen toggle */}
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
+            title={isFullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"}
+          >
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            {isFullscreen ? "Exit" : "Fullscreen"}
+          </button>
+
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors"
@@ -158,19 +233,14 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         </div>
       </div>
 
-      {/* PDF content */}
+      {/* PDF */}
       <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-[#06060d]">
         <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center", transition: "transform 0.2s ease" }}>
           {file.url ? (
             <iframe
               src={`${file.url}#toolbar=0&navpanes=0&scrollbar=0`}
               className="rounded-xl shadow-2xl"
-              style={{
-                width: "816px",
-                height: "80vh",
-                border: "none",
-                background: "white",
-              }}
+              style={{ width: "816px", height: "80vh", border: "none", background: "white" }}
               title={file.name}
             />
           ) : (
@@ -189,12 +259,15 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         <span className="w-px h-3 bg-white/10" />
         <span className="text-xs text-white/30 font-mono">+ / -</span>
         <span className="text-xs text-white/20">zoom</span>
+        <span className="w-px h-3 bg-white/10" />
+        <span className="text-xs text-white/30 font-mono">F</span>
+        <span className="text-xs text-white/20">fullscreen</span>
       </div>
     </div>
   );
 }
 
-// ── Rename modal ─────────────────────────────────────────────────────────────
+// ── Rename modal ──────────────────────────────────────────────────────────────
 
 function RenameModal({ current, onSave, onClose }: { current: string; onSave: (v: string) => void; onClose: () => void }) {
   const [val, setVal] = useState(current);
@@ -203,15 +276,14 @@ function RenameModal({ current, onSave, onClose }: { current: string; onSave: (v
       <div className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-bold text-white mb-4">Rename</h3>
         <input
-          autoFocus
-          value={val}
+          autoFocus value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { onSave(val); onClose(); } if (e.key === "Escape") onClose(); }}
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
         />
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5 transition-colors">Cancel</button>
-          <button onClick={() => { onSave(val); onClose(); }} className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-colors">Save</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">Cancel</button>
+          <button onClick={() => { onSave(val); onClose(); }} className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90">Save</button>
         </div>
       </div>
     </div>
@@ -228,43 +300,38 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string, color: str
       <div className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-bold text-white">New Folder</h3>
         <input
-          autoFocus
-          value={name}
+          autoFocus value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { onSave(name, color); onClose(); } if (e.key === "Escape") onClose(); }}
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
         />
         <div>
           <p className="text-xs text-white/40 mb-2 font-medium">Colour</p>
           <div className="flex flex-wrap gap-2">
             {FOLDER_COLORS.map((c) => (
               <button
-                key={c}
-                onClick={() => setColor(c)}
+                key={c} onClick={() => setColor(c)}
                 className="w-7 h-7 rounded-lg transition-all"
-                style={{
-                  background: c,
-                  boxShadow: color === c ? `0 0 0 2px #0e0e1a, 0 0 0 4px ${c}` : "none",
-                  transform: color === c ? "scale(1.15)" : "scale(1)",
-                }}
+                style={{ background: c, boxShadow: color === c ? `0 0 0 2px #0e0e1a, 0 0 0 4px ${c}` : "none", transform: color === c ? "scale(1.15)" : "scale(1)" }}
               />
             ))}
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5 transition-colors">Cancel</button>
-          <button onClick={() => { onSave(name, color); onClose(); }} className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-colors">Create</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">Cancel</button>
+          <button onClick={() => { onSave(name, color); onClose(); }} className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90">Create</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main Showcase Page ────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShowcasePage() {
-  const [files, setFiles] = useState<PDFFile[]>([]);
-  const [folders, setFolders] = useState<PDFFolder[]>([]);
+  // Hydrate from localStorage on first render
+  const [files, setFiles] = useState<PDFFile[]>(loadFiles);
+  const [folders, setFolders] = useState<PDFFolder[]>(loadFolders);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [search, setSearch] = useState("");
@@ -276,7 +343,16 @@ export default function ShowcasePage() {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── Derived ──────────────────────────────────────────────────────────────
+  // ── Persist on every change ───────────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem("pdf-showcase-files", JSON.stringify(serializeFiles(files)));
+  }, [files]);
+
+  useEffect(() => {
+    localStorage.setItem("pdf-showcase-folders", JSON.stringify(folders));
+  }, [folders]);
+
+  // ── Derived ───────────────────────────────────────────────────────────────
   const breadcrumbs = (() => {
     const crumbs: { id: string | null; name: string }[] = [{ id: null, name: "My PDFs" }];
     if (currentFolderId) {
@@ -301,12 +377,13 @@ export default function ShowcasePage() {
 
   const starredFiles = files.filter((f) => f.starred);
 
-  // ── File upload ───────────────────────────────────────────────────────────
-  const handleFiles = useCallback((fileList: FileList | null) => {
+  // ── File upload (now reads base64 for persistence) ────────────────────────
+  const handleFiles = useCallback(async (fileList: FileList | null) => {
     if (!fileList) return;
     const newFiles: PDFFile[] = [];
-    Array.from(fileList).forEach((f) => {
-      if (f.type !== "application/pdf") return;
+    for (const f of Array.from(fileList)) {
+      if (f.type !== "application/pdf") continue;
+      const base64 = await fileToBase64(f);
       newFiles.push({
         id: crypto.randomUUID(),
         name: f.name.replace(/\.pdf$/i, ""),
@@ -314,10 +391,10 @@ export default function ShowcasePage() {
         uploadedAt: new Date(),
         folderId: currentFolderId,
         starred: false,
-        url: URL.createObjectURL(f),
-        file: f,
+        base64,
+        url: `data:application/pdf;base64,${base64}`,
       });
-    });
+    }
     setFiles((prev) => [...prev, ...newFiles]);
   }, [currentFolderId]);
 
@@ -327,18 +404,14 @@ export default function ShowcasePage() {
     handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
 
-  // ── CRUD ─────────────────────────────────────────────────────────────────
+  // ── CRUD ──────────────────────────────────────────────────────────────────
   const createFolder = (name: string, color: string) => {
-    setFolders((prev) => [...prev, {
-      id: crypto.randomUUID(), name, color,
-      createdAt: new Date(), parentId: currentFolderId,
-    }]);
+    setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, color, createdAt: new Date(), parentId: currentFolderId }]);
   };
 
   const deleteFile = (id: string) => setFiles((p) => p.filter((f) => f.id !== id));
   const deleteFolder = (id: string) => {
     setFolders((p) => p.filter((f) => f.id !== id));
-    // Move files in deleted folder to parent
     setFiles((p) => p.map((f) => f.folderId === id ? { ...f, folderId: currentFolderId } : f));
   };
 
@@ -352,7 +425,6 @@ export default function ShowcasePage() {
     setCtxMenu({ x: e.clientX, y: e.clientY, type, id });
   };
 
-  // ── Empty state ───────────────────────────────────────────────────────────
   const isEmpty = visibleFolders.length === 0 && visibleFiles.length === 0;
 
   return (
@@ -362,7 +434,6 @@ export default function ShowcasePage() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      {/* Drag overlay */}
       {dragging && (
         <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
           style={{ background: "rgba(0,183,255,0.07)", border: "2px dashed #00b7ff" }}>
@@ -373,120 +444,60 @@ export default function ShowcasePage() {
         </div>
       )}
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="font-display font-black text-2xl">PDF Showcase</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {files.length} files • {folders.length} folders
-          </p>
+          <p className="text-muted-foreground text-sm mt-0.5">{files.length} files · {folders.length} folders</p>
         </div>
-
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowNewFolder(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all"
-          >
-            <FolderPlus className="w-4 h-4" />
-            New Folder
+          <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all">
+            <FolderPlus className="w-4 h-4" /> New Folder
           </button>
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all shadow-lg"
-            style={{ boxShadow: "0 0 20px rgba(0,183,255,0.3)" }}
-          >
-            <Upload className="w-4 h-4" />
-            Upload PDF
+          <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all shadow-lg" style={{ boxShadow: "0 0 20px rgba(0,183,255,0.3)" }}>
+            <Upload className="w-4 h-4" /> Upload PDF
           </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf"
-            multiple
-            className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
-          />
+          <input ref={inputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
         </div>
       </div>
 
-      {/* ── Toolbar ────────────────────────────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        {/* Breadcrumb */}
         <div className="flex items-center gap-1 text-sm">
           {breadcrumbs.map((crumb, i) => (
             <span key={crumb.id ?? "root"} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-white/20" />}
-              <button
-                onClick={() => setCurrentFolderId(crumb.id)}
-                className={cn(
-                  "px-2 py-1 rounded-lg transition-colors font-medium",
-                  i === breadcrumbs.length - 1
-                    ? "text-white"
-                    : "text-white/40 hover:text-white hover:bg-white/5"
-                )}
-              >
-                {i === 0 && <Home className="w-3.5 h-3.5 inline mr-1" />}
-                {crumb.name}
+              <button onClick={() => setCurrentFolderId(crumb.id)} className={cn("px-2 py-1 rounded-lg transition-colors font-medium", i === breadcrumbs.length - 1 ? "text-white" : "text-white/40 hover:text-white hover:bg-white/5")}>
+                {i === 0 && <Home className="w-3.5 h-3.5 inline mr-1" />}{crumb.name}
               </button>
             </span>
           ))}
         </div>
-
         <div className="flex-1" />
-
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="w-44 pl-8 pr-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/30"
-          />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="w-44 pl-8 pr-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/30" />
         </div>
-
-        {/* Sort */}
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white/60 focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/30 appearance-none cursor-pointer"
-        >
+        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white/60 focus:outline-none appearance-none cursor-pointer">
           <option value="date">By date</option>
           <option value="name">By name</option>
           <option value="size">By size</option>
         </select>
-
-        {/* View toggle */}
         <div className="flex rounded-xl border border-white/10 overflow-hidden">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "grid" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}
-          >
-            <Grid3X3 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "list" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}
-          >
-            <List className="w-3.5 h-3.5" />
-          </button>
+          <button onClick={() => setViewMode("grid")} className={cn("px-2.5 py-1.5 transition-colors", viewMode === "grid" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}><Grid3X3 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setViewMode("list")} className={cn("px-2.5 py-1.5 transition-colors", viewMode === "list" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}><List className="w-3.5 h-3.5" /></button>
         </div>
       </div>
 
-      {/* ── Starred strip (only at root) ───────────────────────────────── */}
+      {/* Starred strip */}
       {!currentFolderId && !search && starredFiles.length > 0 && (
         <div className="mb-5">
           <p className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-            <Star className="w-3 h-3 text-amber-400" />
-            Starred
+            <Star className="w-3 h-3 text-amber-400" /> Starred
           </p>
           <div className="flex gap-3 overflow-x-auto pb-1">
             {starredFiles.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setViewerFile(f)}
-                className="flex-none flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 transition-all"
-              >
+              <button key={f.id} onClick={() => setViewerFile(f)} className="flex-none flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 transition-all">
                 <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="text-xs font-medium text-white/70 max-w-[100px] truncate">{f.name}</span>
               </button>
@@ -495,14 +506,10 @@ export default function ShowcasePage() {
         </div>
       )}
 
-      {/* ── Main content ───────────────────────────────────────────────── */}
+      {/* Content */}
       <div className="flex-1 overflow-auto min-h-0">
         {isEmpty && !search ? (
-          /* Empty state / drop zone */
-          <div
-            className="flex flex-col items-center justify-center h-80 rounded-2xl border-2 border-dashed border-white/10 cursor-pointer hover:border-[#00b7ff]/40 hover:bg-[#00b7ff]/5 transition-all group"
-            onClick={() => inputRef.current?.click()}
-          >
+          <div className="flex flex-col items-center justify-center h-80 rounded-2xl border-2 border-dashed border-white/10 cursor-pointer hover:border-[#00b7ff]/40 hover:bg-[#00b7ff]/5 transition-all group" onClick={() => inputRef.current?.click()}>
             <div className="w-16 h-16 rounded-2xl bg-[#00b7ff]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Upload className="w-7 h-7 text-[#00b7ff]" />
             </div>
@@ -515,61 +522,27 @@ export default function ShowcasePage() {
             <p className="text-sm">No results for "{search}"</p>
           </div>
         ) : viewMode === "grid" ? (
-          /* ── Grid view ── */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {/* Folders */}
             {visibleFolders.map((folder) => (
-              <div
-                key={folder.id}
-                className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer p-4 flex flex-col items-center gap-2 hover:border-white/15"
-                style={{ boxShadow: `0 0 0 0 ${folder.color}` }}
-                onDoubleClick={() => setCurrentFolderId(folder.id)}
-                onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}
-              >
-                <div className="relative">
-                  <Folder className="w-12 h-12 transition-transform group-hover:scale-105" style={{ color: folder.color, fill: `${folder.color}30` }} />
-                </div>
+              <div key={folder.id} className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer p-4 flex flex-col items-center gap-2 hover:border-white/15"
+                onDoubleClick={() => setCurrentFolderId(folder.id)} onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}>
+                <Folder className="w-12 h-12 transition-transform group-hover:scale-105" style={{ color: folder.color, fill: `${folder.color}30` }} />
                 <p className="text-xs font-semibold text-white/70 text-center truncate w-full">{folder.name}</p>
-                <p className="text-[10px] text-white/25">
-                  {files.filter((f) => f.folderId === folder.id).length} files
-                </p>
-                {/* Action hint */}
-                <div className="absolute inset-0 rounded-2xl flex items-end justify-center pb-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[9px] text-white/30">double-click to open</span>
-                </div>
+                <p className="text-[10px] text-white/25">{files.filter((f) => f.folderId === folder.id).length} files</p>
               </div>
             ))}
-
-            {/* Files */}
             {visibleFiles.map((file) => (
-              <div
-                key={file.id}
-                className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer overflow-hidden"
-                onContextMenu={(e) => openCtxMenu(e, "file", file.id)}
-              >
-                {/* Preview thumbnail (just icon for now) */}
-                <div
-                  className="h-28 flex items-center justify-center relative overflow-hidden"
-                  style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}
-                >
+              <div key={file.id} className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer overflow-hidden"
+                onContextMenu={(e) => openCtxMenu(e, "file", file.id)}>
+                <div className="h-28 flex items-center justify-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}>
                   <FileText className="w-10 h-10 text-[#00b7ff]/60 group-hover:scale-110 transition-transform" />
-                  {file.starred && (
-                    <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  )}
-
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: "rgba(0,0,0,0.7)" }}>
-                    <button
-                      onClick={() => setViewerFile(file)}
-                      className="w-9 h-9 rounded-xl bg-[#00b7ff] text-black flex items-center justify-center hover:scale-110 transition-transform"
-                      title="Open fullscreen"
-                    >
+                  {file.starred && <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.7)" }}>
+                    <button onClick={() => setViewerFile(file)} className="w-9 h-9 rounded-xl bg-[#00b7ff] text-black flex items-center justify-center hover:scale-110 transition-transform" title="Open">
                       <Eye className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-
                 <div className="p-2.5 space-y-0.5">
                   <p className="text-xs font-semibold text-white/80 truncate">{file.name}</p>
                   <p className="text-[10px] text-white/30">{fmtSize(file.size)} · {fmtDate(file.uploadedAt)}</p>
@@ -578,7 +551,6 @@ export default function ShowcasePage() {
             ))}
           </div>
         ) : (
-          /* ── List view ── */
           <div className="rounded-2xl border border-white/8 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -591,37 +563,26 @@ export default function ShowcasePage() {
               </thead>
               <tbody>
                 {visibleFolders.map((folder) => (
-                  <tr
-                    key={folder.id}
-                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
-                    onDoubleClick={() => setCurrentFolderId(folder.id)}
-                    onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}
-                  >
+                  <tr key={folder.id} className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
+                    onDoubleClick={() => setCurrentFolderId(folder.id)} onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Folder className="w-5 h-5 shrink-0" style={{ color: folder.color, fill: `${folder.color}30` }} />
                         <span className="font-medium text-white/80">{folder.name}</span>
-                        <span className="text-[10px] text-white/20 hidden group-hover:inline">double-click to open</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">
-                      {files.filter((f) => f.folderId === folder.id).length} files
-                    </td>
+                    <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">{files.filter((f) => f.folderId === folder.id).length} files</td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(folder.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={(e) => openCtxMenu(e, "folder", folder.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white transition-colors opacity-0 group-hover:opacity-100">
+                      <button onClick={(e) => openCtxMenu(e, "folder", folder.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white opacity-0 group-hover:opacity-100">
                         <MoreVertical className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
                 ))}
                 {visibleFiles.map((file) => (
-                  <tr
-                    key={file.id}
-                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
-                    onDoubleClick={() => setViewerFile(file)}
-                    onContextMenu={(e) => openCtxMenu(e, "file", file.id)}
-                  >
+                  <tr key={file.id} className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
+                    onDoubleClick={() => setViewerFile(file)} onContextMenu={(e) => openCtxMenu(e, "file", file.id)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 shrink-0 text-[#00b7ff]/60" />
@@ -633,12 +594,8 @@ export default function ShowcasePage() {
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(file.uploadedAt)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
-                        <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-[#00b7ff]/20 text-white/30 hover:text-[#00b7ff] transition-colors" title="Open">
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={(e) => openCtxMenu(e, "file", file.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white transition-colors">
-                          <MoreVertical className="w-3.5 h-3.5" />
-                        </button>
+                        <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-[#00b7ff]/20 text-white/30 hover:text-[#00b7ff]" title="Open"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => openCtxMenu(e, "file", file.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white"><MoreVertical className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -649,11 +606,9 @@ export default function ShowcasePage() {
         )}
       </div>
 
-      {/* ── Context menus ────────────────────────────────────────────────── */}
-      {ctxMenu && ctxMenu.type === "file" && (
-        <CtxMenu
-          x={ctxMenu.x} y={ctxMenu.y}
-          onClose={() => setCtxMenu(null)}
+      {/* Context menus */}
+      {ctxMenu?.type === "file" && (
+        <CtxMenu x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)}
           items={[
             { label: "Open", icon: <Eye className="w-3.5 h-3.5" />, onClick: () => { const f = files.find((f) => f.id === ctxMenu.id); if (f) setViewerFile(f); } },
             { label: files.find((f) => f.id === ctxMenu.id)?.starred ? "Unstar" : "Star", icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(ctxMenu.id) },
@@ -662,10 +617,8 @@ export default function ShowcasePage() {
           ]}
         />
       )}
-      {ctxMenu && ctxMenu.type === "folder" && (
-        <CtxMenu
-          x={ctxMenu.x} y={ctxMenu.y}
-          onClose={() => setCtxMenu(null)}
+      {ctxMenu?.type === "folder" && (
+        <CtxMenu x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)}
           items={[
             { label: "Open", icon: <Folder className="w-3.5 h-3.5" />, onClick: () => setCurrentFolderId(ctxMenu.id) },
             { label: "Rename", icon: <Edit3 className="w-3.5 h-3.5" />, onClick: () => { const f = folders.find((f) => f.id === ctxMenu.id); if (f) setRenaming({ type: "folder", id: f.id, current: f.name }); } },
@@ -674,7 +627,7 @@ export default function ShowcasePage() {
         />
       )}
 
-      {/* ── Modals ───────────────────────────────────────────────────────── */}
+      {/* Modals */}
       {showNewFolder && <NewFolderModal onSave={createFolder} onClose={() => setShowNewFolder(false)} />}
       {renaming && (
         <RenameModal
@@ -684,7 +637,7 @@ export default function ShowcasePage() {
         />
       )}
 
-      {/* ── PDF Viewer ───────────────────────────────────────────────────── */}
+      {/* Viewer */}
       {viewerFile && <PDFViewer file={viewerFile} onClose={() => setViewerFile(null)} />}
     </div>
   );
