@@ -2,21 +2,19 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { Play, Pause, RotateCcw, X, SkipForward, Timer } from "lucide-react";
+import { Play, Pause, RotateCcw, SkipForward, X, Timer } from "lucide-react";
 
 type Mode = "work" | "short" | "long";
 
-const MODES: Record<Mode, { label: string; seconds: number; color: string; shortLabel: string }> = {
-    work: { label: "Focus", seconds: 25 * 60, color: "#00b7ff", shortLabel: "Focus" },
-    short: { label: "Short Break", seconds: 5 * 60, color: "#4ECDC4", shortLabel: "5m" },
-    long: { label: "Long Break", seconds: 15 * 60, color: "#FF6B6B", shortLabel: "15m" },
+const MODES: Record<Mode, { label: string; seconds: number; accent: string }> = {
+    work: { label: "Focus", seconds: 25 * 60, accent: "#00b7ff" },
+    short: { label: "Short Break", seconds: 5 * 60, accent: "#4ECDC4" },
+    long: { label: "Long Break", seconds: 15 * 60, accent: "#a78bfa" },
 };
 
 const LS_KEY = "nahda-edu:floating-pom";
-
-function fmt(s: number) {
-    return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
-}
+const fmt = (s: number) =>
+    `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
 export default function FloatingPomodoro() {
     const pathname = usePathname();
@@ -26,11 +24,10 @@ export default function FloatingPomodoro() {
     const [mode, setMode] = useState<Mode>("work");
     const [remaining, setRemaining] = useState(MODES.work.seconds);
     const [running, setRunning] = useState(false);
-    const [pulse, setPulse] = useState(false);
     const [mounted, setMounted] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Load from localStorage only after mount (fixes hydration error)
+    // ── Persist & restore ──────────────────────────────────────────────
     useEffect(() => {
         setMounted(true);
         try {
@@ -47,7 +44,6 @@ export default function FloatingPomodoro() {
         } catch { }
     }, []);
 
-    // Sync WITH pomodoro page via storage events
     useEffect(() => {
         const onStorage = (e: StorageEvent) => {
             if (e.key !== LS_KEY || !e.newValue) return;
@@ -62,15 +58,14 @@ export default function FloatingPomodoro() {
         return () => window.removeEventListener("storage", onStorage);
     }, []);
 
-    // Persist on change
     useEffect(() => {
         if (!mounted) return;
-        try {
-            localStorage.setItem(LS_KEY, JSON.stringify({ mode, remaining, running, savedAt: Date.now() }));
-        } catch { }
+        localStorage.setItem(LS_KEY, JSON.stringify({ mode, remaining, running, savedAt: Date.now() }));
+        // Sync pomodoro page via custom event
+        window.dispatchEvent(new CustomEvent("pomodoro-sync", { detail: { mode, remaining, running } }));
     }, [mode, remaining, running, mounted]);
 
-    // Tick
+    // ── Tick ───────────────────────────────────────────────────────────
     useEffect(() => {
         if (!running) { clearInterval(intervalRef.current!); return; }
         intervalRef.current = setInterval(() => {
@@ -78,9 +73,7 @@ export default function FloatingPomodoro() {
                 if (r <= 1) {
                     clearInterval(intervalRef.current!);
                     setRunning(false);
-                    setMode((m) => m === "work" ? "short" : "work");
-                    setPulse(true);
-                    setTimeout(() => setPulse(false), 1500);
+                    setMode((m) => (m === "work" ? "short" : "work"));
                     return 0;
                 }
                 return r - 1;
@@ -90,120 +83,193 @@ export default function FloatingPomodoro() {
     }, [running]);
 
     const switchMode = useCallback((m: Mode) => {
-        setRunning(false);
-        setMode(m);
-        setRemaining(MODES[m].seconds);
+        setRunning(false); setMode(m); setRemaining(MODES[m].seconds);
     }, []);
 
     const reset = useCallback(() => {
-        setRunning(false);
-        setRemaining(MODES[mode].seconds);
+        setRunning(false); setRemaining(MODES[mode].seconds);
     }, [mode]);
 
     const skip = useCallback(() => {
-        setRunning(false);
         const next: Mode = mode === "work" ? "short" : "work";
-        setMode(next);
-        setRemaining(MODES[next].seconds);
+        setRunning(false); setMode(next); setRemaining(MODES[next].seconds);
     }, [mode]);
 
-    // Don't render until mounted (prevents hydration mismatch)
     if (!mounted || onPomodoroPage) return null;
 
-    const { color, seconds } = MODES[mode];
+    const { accent, seconds, label } = MODES[mode];
     const progress = 1 - remaining / seconds;
-    const circumference = 2 * Math.PI * 20;
+    const circumference = 2 * Math.PI * 18;
     const dash = circumference * progress;
-    const isComplete = remaining === 0;
 
     return (
         <>
+            {/* ── Expanded panel ─────────────────────────────────────────── */}
             {open && (
                 <div
-                    className="fixed bottom-24 right-5 z-50 w-60 rounded-2xl border border-white/10 bg-[#0e0e1a]/96 backdrop-blur-2xl shadow-2xl overflow-hidden"
-                    style={{ boxShadow: `0 8px 60px ${color}22, 0 0 0 1px ${color}15` }}
+                    className="fixed bottom-20 right-5 z-50 w-56 rounded-2xl overflow-hidden"
+                    style={{
+                        background: "#0c0c18",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+                    }}
                 >
-                    <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
+                    {/* Top accent line */}
+                    <div style={{ height: 2, background: accent, opacity: 0.9 }} />
+
                     <div className="p-4 space-y-4">
+                        {/* Header */}
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Timer className="w-3.5 h-3.5" style={{ color }} />
-                                <span className="text-xs font-black uppercase tracking-widest" style={{ color }}>Pomodoro</span>
+                            <div className="flex items-center gap-1.5">
+                                <Timer className="w-3 h-3" style={{ color: accent }} />
+                                <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: accent }}>
+                                    Pomodoro
+                                </span>
                             </div>
-                            <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-colors">
+                            <button
+                                onClick={() => setOpen(false)}
+                                className="w-5 h-5 rounded-md flex items-center justify-center transition-colors"
+                                style={{ color: "rgba(255,255,255,0.25)" }}
+                                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
+                            >
                                 <X className="w-3 h-3" />
                             </button>
                         </div>
 
-                        <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+                        {/* Mode tabs */}
+                        <div
+                            className="flex rounded-lg p-0.5 gap-0.5"
+                            style={{ background: "rgba(255,255,255,0.04)" }}
+                        >
                             {(["work", "short", "long"] as Mode[]).map((m) => (
                                 <button
                                     key={m}
                                     onClick={() => switchMode(m)}
-                                    className="flex-1 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-all duration-200"
-                                    style={mode === m
-                                        ? { background: MODES[m].color, color: "#000", boxShadow: `0 0 12px ${MODES[m].color}50` }
-                                        : { color: "rgba(255,255,255,0.25)" }}
+                                    className="flex-1 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all duration-150"
+                                    style={
+                                        mode === m
+                                            ? { background: MODES[m].accent, color: "#000" }
+                                            : { color: "rgba(255,255,255,0.2)" }
+                                    }
                                 >
-                                    {MODES[m].shortLabel}
+                                    {m === "work" ? "Focus" : m === "short" ? "5m" : "15m"}
                                 </button>
                             ))}
                         </div>
 
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="relative w-28 h-28">
-                                {running && <div className="absolute inset-0 rounded-full opacity-20 blur-xl" style={{ background: color }} />}
-                                <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
-                                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5" />
-                                    <circle cx="24" cy="24" r="20" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round"
+                        {/* Timer ring */}
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="relative w-24 h-24">
+                                <svg className="w-full h-full" viewBox="0 0 48 48" style={{ transform: "rotate(-90deg)" }}>
+                                    {/* Track */}
+                                    <circle cx="24" cy="24" r="18" fill="none"
+                                        stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                                    {/* Progress */}
+                                    <circle cx="24" cy="24" r="18" fill="none"
+                                        stroke={accent} strokeWidth="3" strokeLinecap="round"
                                         strokeDasharray={`${dash} ${circumference}`}
-                                        style={{ transition: "stroke-dasharray 0.6s ease", filter: `drop-shadow(0 0 6px ${color}80)` }} />
+                                        style={{ transition: "stroke-dasharray 0.5s ease" }} />
                                 </svg>
+                                {/* Center text */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="font-mono font-black text-xl text-white tabular-nums leading-none tracking-tight">{fmt(remaining)}</span>
-                                    <span className="text-[9px] mt-1 font-semibold uppercase tracking-wider" style={{ color: `${color}99` }}>
-                                        {isComplete ? "Done! 🎉" : MODES[mode].label}
+                                    <span className="font-mono font-black text-lg text-white leading-none tabular-nums">
+                                        {fmt(remaining)}
+                                    </span>
+                                    <span className="text-[8px] font-semibold mt-0.5 uppercase tracking-wider"
+                                        style={{ color: `${accent}99` }}>
+                                        {label}
                                     </span>
                                 </div>
                             </div>
 
+                            {/* Controls */}
                             <div className="flex items-center gap-2">
-                                <button onClick={reset} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white transition-all" style={{ background: "rgba(255,255,255,0.05)" }}>
-                                    <RotateCcw className="w-3.5 h-3.5" />
+                                <button
+                                    onClick={reset}
+                                    className="w-7 h-7 rounded-xl flex items-center justify-center transition-colors"
+                                    style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+                                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                                >
+                                    <RotateCcw className="w-3 h-3" />
                                 </button>
+
+                                {/* Play/Pause */}
                                 <button
                                     onClick={() => setRunning((r) => !r)}
-                                    className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold transition-all duration-200 active:scale-95 shadow-lg"
-                                    style={{ background: running ? "rgba(255,255,255,0.1)" : color, color: running ? "white" : "#000", boxShadow: running ? "none" : `0 0 20px ${color}60`, border: running ? `1px solid ${color}40` : "none" }}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-all duration-150 active:scale-95"
+                                    style={
+                                        running
+                                            ? { background: "rgba(255,255,255,0.08)", color: "white", border: `1px solid ${accent}40` }
+                                            : { background: accent, color: "#000" }
+                                    }
                                 >
-                                    {running ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 translate-x-0.5" />}
+                                    {running
+                                        ? <Pause className="w-4 h-4" />
+                                        : <Play className="w-4 h-4 translate-x-px" />}
                                 </button>
-                                <button onClick={skip} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white transition-all" style={{ background: "rgba(255,255,255,0.05)" }}>
-                                    <SkipForward className="w-3.5 h-3.5" />
+
+                                <button
+                                    onClick={skip}
+                                    className="w-7 h-7 rounded-xl flex items-center justify-center transition-colors"
+                                    style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+                                    onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                                >
+                                    <SkipForward className="w-3 h-3" />
                                 </button>
                             </div>
                         </div>
 
-                        <p className="text-center text-[10px] text-white/20 pb-1">
-                            {running ? (mode === "work" ? "🧠 Stay focused…" : "☕ Rest up!") : "Press play to start"}
+                        {/* Status line */}
+                        <p className="text-center text-[9px] pb-0.5" style={{ color: "rgba(255,255,255,0.18)" }}>
+                            {running
+                                ? mode === "work" ? "Stay focused" : "Take it easy"
+                                : remaining === 0 ? "Session complete" : "Ready when you are"}
                         </p>
                     </div>
                 </div>
             )}
 
+            {/* ── FAB trigger ────────────────────────────────────────────── */}
             <button
                 onClick={() => setOpen((o) => !o)}
-                className="fixed bottom-5 right-20 z-50 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95"
-                style={{ width: 52, height: 52, background: `radial-gradient(circle at 35% 35%, ${color}dd, ${color}77)`, boxShadow: `0 0 ${pulse ? "40px" : "20px"} ${color}${pulse ? "90" : "50"}, 0 4px 20px rgba(0,0,0,0.4)` }}
+                className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-2xl transition-all duration-200 active:scale-95"
+                style={{
+                    height: 44,
+                    paddingInline: "14px",
+                    background: "#0c0c18",
+                    border: "1px solid rgba(255,255,255,0.10)",
+                    boxShadow: running
+                        ? `0 0 0 1px ${accent}40, 0 8px 24px rgba(0,0,0,0.5)`
+                        : "0 4px 16px rgba(0,0,0,0.4)",
+                }}
             >
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 48 48">
-                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="3" />
-                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="3" strokeLinecap="round"
-                        strokeDasharray={`${dash} ${circumference}`} style={{ transition: "stroke-dasharray 0.6s ease" }} />
-                </svg>
-                <span className="relative font-mono font-black text-[9px] text-white tabular-nums leading-none text-center">
-                    {running ? fmt(remaining) : "🍅"}
+                {/* Mini ring */}
+                <div className="relative w-5 h-5 shrink-0">
+                    <svg className="w-full h-full" viewBox="0 0 24 24" style={{ transform: "rotate(-90deg)" }}>
+                        <circle cx="12" cy="12" r="9" fill="none"
+                            stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
+                        <circle cx="12" cy="12" r="9" fill="none"
+                            stroke={accent} strokeWidth="2.5" strokeLinecap="round"
+                            strokeDasharray={`${(2 * Math.PI * 9) * progress} ${2 * Math.PI * 9}`}
+                            style={{ transition: "stroke-dasharray 0.5s ease" }} />
+                    </svg>
+                </div>
+
+                {/* Label */}
+                <span className="font-mono text-xs font-bold text-white tabular-nums">
+                    {fmt(remaining)}
                 </span>
+
+                {/* Running dot */}
+                {running && (
+                    <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ background: accent }}
+                    />
+                )}
             </button>
         </>
     );
