@@ -114,8 +114,9 @@ export default function FloatingPomodoro() {
         if (!didDrag.current) setOpen((o) => !o);
     };
 
-    const hideWidget = pathname === "/pomodoro";
-    if (!mounted || hideWidget) return null;
+    // ✅ Only hide the widget when on the dedicated pomodoro page AND not in PDF fullscreen
+    // The PDF viewer uses z-[100]; we use z-[200] so we always render on top
+    if (!mounted || onPomodoroPage) return null;
 
     const { accent, seconds, label } = MODES[mode];
     const progress = 1 - remaining / seconds;
@@ -129,7 +130,8 @@ export default function FloatingPomodoro() {
                     onPointerDown={e => e.stopPropagation()}
                     onPointerMove={e => e.stopPropagation()}
                     onPointerUp={e => e.stopPropagation()}
-                    className="fixed bottom-20 right-5 z-50 w-56 rounded-2xl overflow-hidden"
+                    // ✅ z-[200] — renders above PDF viewer (z-[100]) and all other overlays
+                    className="fixed bottom-20 right-5 z-[200] w-56 rounded-2xl overflow-hidden"
                     style={{
                         background: "#0c0c18",
                         border: "1px solid rgba(255,255,255,0.08)",
@@ -192,7 +194,6 @@ export default function FloatingPomodoro() {
                                     <RotateCcw className="w-3 h-3" />
                                 </button>
 
-                                {/* ── Play / Pause ── */}
                                 <button
                                     onClick={() => setRunning((r) => !r)}
                                     className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-95"
@@ -222,11 +223,12 @@ export default function FloatingPomodoro() {
             )}
 
             {/* ── Draggable FAB ── */}
+            {/* ✅ z-[200] — always above the PDF viewer overlay */}
             <button
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
-                className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-2xl"
+                className="fixed bottom-5 right-5 z-[200] flex items-center gap-2 rounded-2xl"
                 style={{
                     height: 44,
                     paddingInline: "14px",

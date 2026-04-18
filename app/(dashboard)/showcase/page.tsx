@@ -350,6 +350,7 @@ function PDFViewer({ file, onClose }: ViewerProps) {
   };
 
   return (
+    // ✅ z-[100] — Pomodoro widget uses z-[200] so it always floats above
     <div
       ref={viewerRef}
       className="fixed inset-0 z-[100] flex flex-col"
@@ -528,18 +529,26 @@ export default function ShowcasePage() {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── KEY FIX: use a ref to always capture the latest currentFolderId ──────────
   const currentFolderIdRef = useRef(currentFolderId);
   useEffect(() => {
     currentFolderIdRef.current = currentFolderId;
   }, [currentFolderId]);
 
+  // ✅ Graceful localStorage save — catches quota errors silently
   useEffect(() => {
-    localStorage.setItem("pdf-showcase-files", JSON.stringify(serializeFiles(files)));
+    try {
+      localStorage.setItem("pdf-showcase-files", JSON.stringify(serializeFiles(files)));
+    } catch {
+      // localStorage quota exceeded — files remain in memory for this session
+    }
   }, [files]);
 
   useEffect(() => {
-    localStorage.setItem("pdf-showcase-folders", JSON.stringify(folders));
+    try {
+      localStorage.setItem("pdf-showcase-folders", JSON.stringify(folders));
+    } catch {
+      // quota exceeded
+    }
   }, [folders]);
 
   const breadcrumbs = (() => {
@@ -566,10 +575,10 @@ export default function ShowcasePage() {
 
   const starredFiles = files.filter((f) => f.starred);
 
-  // ── KEY FIX: read folderId from ref inside the async callback ───────────────
+  // ✅ FIX: Reset input.value after each upload so you can immediately add more files
+  // without needing to clear and re-select everything
   const handleFiles = useCallback(async (fileList: FileList | null) => {
     if (!fileList) return;
-    // Capture the current folder at the moment the upload starts
     const targetFolderId = currentFolderIdRef.current;
     const newFiles: PDFFile[] = [];
     for (const f of Array.from(fileList)) {
@@ -580,15 +589,16 @@ export default function ShowcasePage() {
         name: f.name.replace(/\.pdf$/i, ""),
         size: f.size,
         uploadedAt: new Date(),
-        folderId: targetFolderId,   // ← always correct, no stale closure
+        folderId: targetFolderId,
         starred: false,
         base64,
         url: `data:application/pdf;base64,${base64}`,
       });
     }
-    // Use functional update so we never read stale `files` state either
     setFiles((prev) => [...prev, ...newFiles]);
-  }, []); // no deps needed — ref always has latest value
+    // ✅ Reset the input so the same or new files can be picked again immediately
+    if (inputRef.current) inputRef.current.value = "";
+  }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -652,6 +662,7 @@ export default function ShowcasePage() {
           <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all shadow-lg" style={{ boxShadow: "0 0 20px rgba(0,183,255,0.3)" }}>
             <Upload className="w-4 h-4" /> Upload PDF
           </button>
+          {/* ✅ No limit on files — browser handles multiple selection natively */}
           <input ref={inputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
         </div>
       </div>
