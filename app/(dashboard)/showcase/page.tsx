@@ -21,7 +21,7 @@ interface PDFFile {
   starred: boolean;
   url: string;
   base64?: string;
-  shareId?: string;          // unique token for the share link
+  shareId?: string;
   shareVisibility?: "public" | "private" | null;
 }
 
@@ -173,7 +173,6 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
         onClick={(e) => e.stopPropagation()}
         style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/8">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#00b7ff]/15 flex items-center justify-center">
@@ -193,11 +192,9 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Visibility toggle */}
           <div>
             <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Access</p>
             <div className="grid grid-cols-2 gap-2">
-              {/* Public option */}
               <button
                 onClick={() => setVisibility("public")}
                 className={cn(
@@ -226,7 +223,6 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
                 )}
               </button>
 
-              {/* Private option */}
               <button
                 onClick={() => setVisibility("private")}
                 className={cn(
@@ -257,7 +253,6 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
             </div>
           </div>
 
-          {/* Link */}
           <div>
             <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Share link</p>
             <div className="flex items-center gap-2">
@@ -296,7 +291,6 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-6 pb-6">
           <button
             onClick={onClose}
@@ -534,6 +528,12 @@ export default function ShowcasePage() {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ── KEY FIX: use a ref to always capture the latest currentFolderId ──────────
+  const currentFolderIdRef = useRef(currentFolderId);
+  useEffect(() => {
+    currentFolderIdRef.current = currentFolderId;
+  }, [currentFolderId]);
+
   useEffect(() => {
     localStorage.setItem("pdf-showcase-files", JSON.stringify(serializeFiles(files)));
   }, [files]);
@@ -566,8 +566,11 @@ export default function ShowcasePage() {
 
   const starredFiles = files.filter((f) => f.starred);
 
+  // ── KEY FIX: read folderId from ref inside the async callback ───────────────
   const handleFiles = useCallback(async (fileList: FileList | null) => {
     if (!fileList) return;
+    // Capture the current folder at the moment the upload starts
+    const targetFolderId = currentFolderIdRef.current;
     const newFiles: PDFFile[] = [];
     for (const f of Array.from(fileList)) {
       if (f.type !== "application/pdf") continue;
@@ -577,14 +580,15 @@ export default function ShowcasePage() {
         name: f.name.replace(/\.pdf$/i, ""),
         size: f.size,
         uploadedAt: new Date(),
-        folderId: currentFolderId,
+        folderId: targetFolderId,   // ← always correct, no stale closure
         starred: false,
         base64,
         url: `data:application/pdf;base64,${base64}`,
       });
     }
+    // Use functional update so we never read stale `files` state either
     setFiles((prev) => [...prev, ...newFiles]);
-  }, [currentFolderId]);
+  }, []); // no deps needed — ref always has latest value
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -599,7 +603,7 @@ export default function ShowcasePage() {
   const deleteFile = (id: string) => setFiles((p) => p.filter((f) => f.id !== id));
   const deleteFolder = (id: string) => {
     setFolders((p) => p.filter((f) => f.id !== id));
-    setFiles((p) => p.map((f) => f.folderId === id ? { ...f, folderId: currentFolderId } : f));
+    setFiles((p) => p.map((f) => f.folderId === id ? { ...f, folderId: currentFolderIdRef.current } : f));
   };
 
   const renameFile = (id: string, name: string) => setFiles((p) => p.map((f) => f.id === id ? { ...f, name } : f));
@@ -728,7 +732,6 @@ export default function ShowcasePage() {
                 <div className="h-28 flex items-center justify-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}>
                   <FileText className="w-10 h-10 text-[#00b7ff]/60 group-hover:scale-110 transition-transform" />
                   {file.starred && <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-                  {/* Visibility badge */}
                   {file.shareVisibility && (
                     <span className={cn(
                       "absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold",
