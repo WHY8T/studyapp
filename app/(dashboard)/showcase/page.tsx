@@ -6,6 +6,7 @@ import {
   Folder, MoreVertical, Trash2, Edit3, Download,
   ChevronRight, Home, Eye, ZoomIn, ZoomOut,
   X, Star, ArrowLeft, Maximize, Minimize,
+  Share2, Lock, Globe, Copy, Check, Link,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +19,10 @@ interface PDFFile {
   uploadedAt: Date;
   folderId: string | null;
   starred: boolean;
-  url: string;       // object URL rebuilt from base64 on load
-  base64?: string;   // persisted in localStorage
+  url: string;
+  base64?: string;
+  shareId?: string;          // unique token for the share link
+  shareVisibility?: "public" | "private" | null;
 }
 
 interface PDFFolder {
@@ -51,7 +54,7 @@ function fmtDate(d: Date) {
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
 function serializeFiles(files: PDFFile[]) {
-  return files.map(({ url: _url, ...rest }) => rest); // strip live object URLs
+  return files.map(({ url: _url, ...rest }) => rest);
 }
 
 function loadFiles(): PDFFile[] {
@@ -62,7 +65,6 @@ function loadFiles(): PDFFile[] {
     return parsed.map((f) => ({
       ...f,
       uploadedAt: new Date(f.uploadedAt),
-      // rebuild object URL from stored base64
       url: f.base64 ? `data:application/pdf;base64,${f.base64}` : "",
     }));
   } catch {
@@ -85,7 +87,7 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      resolve(result.split(",")[1]); // strip data URL prefix
+      resolve(result.split(",")[1]);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
@@ -132,6 +134,190 @@ function CtxMenu({ x, y, items, onClose }: CtxMenuProps) {
   );
 }
 
+// ── Share Modal ───────────────────────────────────────────────────────────────
+
+interface ShareModalProps {
+  file: PDFFile;
+  onSave: (shareId: string, visibility: "public" | "private") => void;
+  onClose: () => void;
+}
+
+function ShareModal({ file, onSave, onClose }: ShareModalProps) {
+  const [visibility, setVisibility] = useState<"public" | "private">(
+    file.shareVisibility ?? "public"
+  );
+  const [shareId] = useState(() => file.shareId ?? crypto.randomUUID().slice(0, 12));
+  const [copied, setCopied] = useState(false);
+
+  const shareLink = `${typeof window !== "undefined" ? window.location.origin : ""}/showcase/share/${shareId}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSave = () => {
+    onSave(shareId, visibility);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(8,8,15,0.85)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-[420px] bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/8">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#00b7ff]/15 flex items-center justify-center">
+              <Share2 className="w-4 h-4 text-[#00b7ff]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-sm">Share PDF</h3>
+              <p className="text-xs text-white/30 truncate max-w-[220px]">{file.name}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white hover:bg-white/8 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Visibility toggle */}
+          <div>
+            <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Access</p>
+            <div className="grid grid-cols-2 gap-2">
+              {/* Public option */}
+              <button
+                onClick={() => setVisibility("public")}
+                className={cn(
+                  "relative flex flex-col items-start gap-2 p-4 rounded-xl border transition-all text-left",
+                  visibility === "public"
+                    ? "border-[#00b7ff]/50 bg-[#00b7ff]/10"
+                    : "border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                  visibility === "public" ? "bg-[#00b7ff]/20" : "bg-white/8"
+                )}>
+                  <Globe className={cn("w-4 h-4", visibility === "public" ? "text-[#00b7ff]" : "text-white/40")} />
+                </div>
+                <div>
+                  <p className={cn("text-sm font-semibold", visibility === "public" ? "text-white" : "text-white/50")}>
+                    Public
+                  </p>
+                  <p className="text-[10px] text-white/25 leading-tight mt-0.5">Anyone with the link</p>
+                </div>
+                {visibility === "public" && (
+                  <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-[#00b7ff] flex items-center justify-center">
+                    <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                  </div>
+                )}
+              </button>
+
+              {/* Private option */}
+              <button
+                onClick={() => setVisibility("private")}
+                className={cn(
+                  "relative flex flex-col items-start gap-2 p-4 rounded-xl border transition-all text-left",
+                  visibility === "private"
+                    ? "border-amber-400/50 bg-amber-400/8"
+                    : "border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                  visibility === "private" ? "bg-amber-400/20" : "bg-white/8"
+                )}>
+                  <Lock className={cn("w-4 h-4", visibility === "private" ? "text-amber-400" : "text-white/40")} />
+                </div>
+                <div>
+                  <p className={cn("text-sm font-semibold", visibility === "private" ? "text-white" : "text-white/50")}>
+                    Private
+                  </p>
+                  <p className="text-[10px] text-white/25 leading-tight mt-0.5">Only you can access</p>
+                </div>
+                {visibility === "private" && (
+                  <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center">
+                    <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Link */}
+          <div>
+            <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Share link</p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-white/10 bg-white/4">
+                <Link className="w-3.5 h-3.5 text-white/25 shrink-0" />
+                <span className="text-xs text-white/40 font-mono truncate flex-1">{shareLink}</span>
+              </div>
+              <button
+                onClick={handleCopy}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0",
+                  copied
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
+                )}
+              >
+                {copied ? (
+                  <><Check className="w-3.5 h-3.5" /> Copied!</>
+                ) : (
+                  <><Copy className="w-3.5 h-3.5" /> Copy</>
+                )}
+              </button>
+            </div>
+            {visibility === "private" && (
+              <p className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-400/70">
+                <Lock className="w-3 h-3" />
+                This link is restricted — only you can view it
+              </p>
+            )}
+            {visibility === "public" && (
+              <p className="flex items-center gap-1.5 mt-2 text-[11px] text-white/30">
+                <Globe className="w-3 h-3" />
+                Anyone with this link can view the PDF
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 pb-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all"
+            style={{ boxShadow: "0 0 20px rgba(0,183,255,0.25)" }}
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            Save & Share
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── PDF Viewer ────────────────────────────────────────────────────────────────
 
 interface ViewerProps {
@@ -144,7 +330,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !document.fullscreenElement) onClose();
@@ -156,7 +341,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Track fullscreen state changes (e.g. user presses Esc in native fullscreen)
   useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onChange);
@@ -177,7 +361,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
       className="fixed inset-0 z-[100] flex flex-col"
       style={{ background: "#08080F" }}
     >
-      {/* Toolbar */}
       <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 shrink-0 bg-[#0e0e1a]/80 backdrop-blur">
         <div className="flex items-center gap-3">
           <button
@@ -193,11 +376,23 @@ function PDFViewer({ file, onClose }: ViewerProps) {
               <FileText className="w-3.5 h-3.5 text-[#00b7ff]" />
             </div>
             <span className="font-semibold text-white text-sm truncate max-w-xs">{file.name}</span>
+            {file.shareVisibility && (
+              <span className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                file.shareVisibility === "public"
+                  ? "bg-[#00b7ff]/15 text-[#00b7ff]"
+                  : "bg-amber-400/15 text-amber-400"
+              )}>
+                {file.shareVisibility === "public"
+                  ? <><Globe className="w-2.5 h-2.5" /> Public</>
+                  : <><Lock className="w-2.5 h-2.5" /> Private</>
+                }
+              </span>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Zoom */}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
             <button
               onClick={() => setZoom((z) => Math.max(50, z - 10))}
@@ -214,11 +409,9 @@ function PDFViewer({ file, onClose }: ViewerProps) {
             </button>
           </div>
 
-          {/* Fullscreen toggle */}
           <button
             onClick={toggleFullscreen}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
-            title={isFullscreen ? "Exit fullscreen (F)" : "Fullscreen (F)"}
           >
             {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
             {isFullscreen ? "Exit" : "Fullscreen"}
@@ -233,7 +426,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         </div>
       </div>
 
-      {/* PDF */}
       <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-[#06060d]">
         <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center", transition: "transform 0.2s ease" }}>
           {file.url ? (
@@ -252,7 +444,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         </div>
       </div>
 
-      {/* Keyboard hint */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur">
         <span className="text-xs text-white/30 font-mono">ESC</span>
         <span className="text-xs text-white/20">close</span>
@@ -329,7 +520,6 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string, color: str
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShowcasePage() {
-  // Hydrate from localStorage on first render
   const [files, setFiles] = useState<PDFFile[]>(loadFiles);
   const [folders, setFolders] = useState<PDFFolder[]>(loadFolders);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -338,12 +528,12 @@ export default function ShowcasePage() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [viewerFile, setViewerFile] = useState<PDFFile | null>(null);
+  const [sharingFile, setSharingFile] = useState<PDFFile | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; type: "file" | "folder"; id: string } | null>(null);
   const [renaming, setRenaming] = useState<{ type: "file" | "folder"; id: string; current: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── Persist on every change ───────────────────────────────────────────────
   useEffect(() => {
     localStorage.setItem("pdf-showcase-files", JSON.stringify(serializeFiles(files)));
   }, [files]);
@@ -352,7 +542,6 @@ export default function ShowcasePage() {
     localStorage.setItem("pdf-showcase-folders", JSON.stringify(folders));
   }, [folders]);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
   const breadcrumbs = (() => {
     const crumbs: { id: string | null; name: string }[] = [{ id: null, name: "My PDFs" }];
     if (currentFolderId) {
@@ -377,7 +566,6 @@ export default function ShowcasePage() {
 
   const starredFiles = files.filter((f) => f.starred);
 
-  // ── File upload (now reads base64 for persistence) ────────────────────────
   const handleFiles = useCallback(async (fileList: FileList | null) => {
     if (!fileList) return;
     const newFiles: PDFFile[] = [];
@@ -404,7 +592,6 @@ export default function ShowcasePage() {
     handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────
   const createFolder = (name: string, color: string) => {
     setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, color, createdAt: new Date(), parentId: currentFolderId }]);
   };
@@ -418,6 +605,10 @@ export default function ShowcasePage() {
   const renameFile = (id: string, name: string) => setFiles((p) => p.map((f) => f.id === id ? { ...f, name } : f));
   const renameFolder = (id: string, name: string) => setFolders((p) => p.map((f) => f.id === id ? { ...f, name } : f));
   const toggleStar = (id: string) => setFiles((p) => p.map((f) => f.id === id ? { ...f, starred: !f.starred } : f));
+
+  const saveShare = (fileId: string, shareId: string, visibility: "public" | "private") => {
+    setFiles((p) => p.map((f) => f.id === fileId ? { ...f, shareId, shareVisibility: visibility } : f));
+  };
 
   const openCtxMenu = (e: React.MouseEvent, type: "file" | "folder", id: string) => {
     e.preventDefault();
@@ -537,9 +728,26 @@ export default function ShowcasePage() {
                 <div className="h-28 flex items-center justify-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}>
                   <FileText className="w-10 h-10 text-[#00b7ff]/60 group-hover:scale-110 transition-transform" />
                   {file.starred && <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                  {/* Visibility badge */}
+                  {file.shareVisibility && (
+                    <span className={cn(
+                      "absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold",
+                      file.shareVisibility === "public"
+                        ? "bg-[#00b7ff]/20 text-[#00b7ff]"
+                        : "bg-amber-400/20 text-amber-400"
+                    )}>
+                      {file.shareVisibility === "public"
+                        ? <><Globe className="w-2 h-2" /> Public</>
+                        : <><Lock className="w-2 h-2" /> Private</>
+                      }
+                    </span>
+                  )}
                   <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.7)" }}>
                     <button onClick={() => setViewerFile(file)} className="w-9 h-9 rounded-xl bg-[#00b7ff] text-black flex items-center justify-center hover:scale-110 transition-transform" title="Open">
                       <Eye className="w-4 h-4" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center hover:scale-110 hover:bg-white/20 transition-all" title="Share">
+                      <Share2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -558,6 +766,7 @@ export default function ShowcasePage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider">Name</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider hidden sm:table-cell">Size</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider hidden md:table-cell">Uploaded</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider hidden md:table-cell">Visibility</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -573,6 +782,7 @@ export default function ShowcasePage() {
                     </td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">{files.filter((f) => f.folderId === folder.id).length} files</td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(folder.createdAt)}</td>
+                    <td className="px-4 py-3 hidden md:table-cell" />
                     <td className="px-4 py-3 text-right">
                       <button onClick={(e) => openCtxMenu(e, "folder", folder.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white opacity-0 group-hover:opacity-100">
                         <MoreVertical className="w-3.5 h-3.5" />
@@ -592,9 +802,27 @@ export default function ShowcasePage() {
                     </td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">{fmtSize(file.size)}</td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(file.uploadedAt)}</td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {file.shareVisibility ? (
+                        <span className={cn(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                          file.shareVisibility === "public"
+                            ? "bg-[#00b7ff]/15 text-[#00b7ff]"
+                            : "bg-amber-400/15 text-amber-400"
+                        )}>
+                          {file.shareVisibility === "public"
+                            ? <><Globe className="w-2.5 h-2.5" /> Public</>
+                            : <><Lock className="w-2.5 h-2.5" /> Private</>
+                          }
+                        </span>
+                      ) : (
+                        <span className="text-white/15 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
                         <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-[#00b7ff]/20 text-white/30 hover:text-[#00b7ff]" title="Open"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white" title="Share"><Share2 className="w-3.5 h-3.5" /></button>
                         <button onClick={(e) => openCtxMenu(e, "file", file.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white"><MoreVertical className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
@@ -611,6 +839,7 @@ export default function ShowcasePage() {
         <CtxMenu x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)}
           items={[
             { label: "Open", icon: <Eye className="w-3.5 h-3.5" />, onClick: () => { const f = files.find((f) => f.id === ctxMenu.id); if (f) setViewerFile(f); } },
+            { label: "Share", icon: <Share2 className="w-3.5 h-3.5" />, onClick: () => { const f = files.find((f) => f.id === ctxMenu.id); if (f) setSharingFile(f); } },
             { label: files.find((f) => f.id === ctxMenu.id)?.starred ? "Unstar" : "Star", icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(ctxMenu.id) },
             { label: "Rename", icon: <Edit3 className="w-3.5 h-3.5" />, onClick: () => { const f = files.find((f) => f.id === ctxMenu.id); if (f) setRenaming({ type: "file", id: f.id, current: f.name }); } },
             { label: "Delete", icon: <Trash2 className="w-3.5 h-3.5" />, onClick: () => deleteFile(ctxMenu.id), danger: true },
@@ -634,6 +863,13 @@ export default function ShowcasePage() {
           current={renaming.current}
           onSave={(v) => renaming.type === "file" ? renameFile(renaming.id, v) : renameFolder(renaming.id, v)}
           onClose={() => setRenaming(null)}
+        />
+      )}
+      {sharingFile && (
+        <ShareModal
+          file={sharingFile}
+          onSave={(shareId, visibility) => saveShare(sharingFile.id, shareId, visibility)}
+          onClose={() => setSharingFile(null)}
         />
       )}
 
