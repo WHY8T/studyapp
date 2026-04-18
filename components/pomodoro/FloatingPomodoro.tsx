@@ -114,7 +114,8 @@ export default function FloatingPomodoro() {
         if (!didDrag.current) setOpen((o) => !o);
     };
 
-    if (!mounted || onPomodoroPage) return null;
+    const hideWidget = pathname === "/pomodoro";
+    if (!mounted || hideWidget) return null;
 
     const { accent, seconds, label } = MODES[mode];
     const progress = 1 - remaining / seconds;
@@ -125,12 +126,14 @@ export default function FloatingPomodoro() {
         <>
             {open && (
                 <div
+                    onPointerDown={e => e.stopPropagation()}
+                    onPointerMove={e => e.stopPropagation()}
+                    onPointerUp={e => e.stopPropagation()}
                     className="fixed bottom-20 right-5 z-50 w-56 rounded-2xl overflow-hidden"
                     style={{
                         background: "#0c0c18",
                         border: "1px solid rgba(255,255,255,0.08)",
                         boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
-                        transform: `translate(${pos.x}px, ${pos.y}px)`,
                     }}
                 >
                     <div style={{ height: 2, background: accent, opacity: 0.9 }} />
