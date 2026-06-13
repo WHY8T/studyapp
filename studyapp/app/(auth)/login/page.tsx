@@ -36,17 +36,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // Show inline error for wrong password / invalid credentials
-      if (
-        error.message.toLowerCase().includes("invalid login") ||
-        error.message.toLowerCase().includes("invalid credentials") ||
-        error.message.toLowerCase().includes("wrong password") ||
-        error.message.toLowerCase().includes("email not confirmed") === false
-      ) {
-        setPasswordError("Incorrect email or password. Please try again.");
-      } else {
-        toast({ title: "Login failed", description: error.message, variant: "destructive" });
-      }
+      setPasswordError("Incorrect email or password. Please try again.");
       setLoading(false);
       return;
     }
@@ -77,10 +67,7 @@ function LoginForm() {
               type="email"
               placeholder="you@student.edu"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setPasswordError("");
-              }}
+              onChange={(e) => { setEmail(e.target.value); setPasswordError(""); }}
               className="pl-10"
               required
             />
@@ -100,16 +87,11 @@ function LoginForm() {
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setPasswordError("");
-              }}
+              onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
               className={`pl-10 ${passwordError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               required
             />
           </div>
-
-          {/* Inline wrong password error */}
           {passwordError && (
             <div className="flex items-center gap-2 text-red-500 text-sm mt-1">
               <AlertCircle className="w-4 h-4 shrink-0" />

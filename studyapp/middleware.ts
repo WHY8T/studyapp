@@ -2,11 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { CookieOptions } from "@supabase/ssr";
 
-export async function proxy(request: NextRequest) {
+const SEVEN_DAYS = 60 * 60 * 24 * 7;
+
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
 
   const supabase = createServerClient(
@@ -25,14 +25,18 @@ export async function proxy(request: NextRequest) {
             request: { headers: request.headers },
           });
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+            response.cookies.set(name, value, {
+              ...options,
+              maxAge: options?.maxAge ?? SEVEN_DAYS,
+              sameSite: options?.sameSite ?? "lax",
+              httpOnly: options?.httpOnly ?? false,
+              secure: process.env.NODE_ENV === "production",
+            });
           });
         },
       },
     }
   );
-
-  const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
 
@@ -43,6 +47,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/auth");
 
   const isPublic = pathname === "/" || isAuthPage;
+
+  // ✅ Only ONE getUser() call — result reused for both session refresh and route protection
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));

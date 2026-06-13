@@ -80,15 +80,23 @@ export function usePomodoro({
   const workSecondsElapsedRef = useRef(0);
   const secondsLeftRef = useRef(secondsLeft);
 
+  // ── Wall-clock refs — the key fix ──────────────────────────────────────
+  // endTimeRef stores the absolute timestamp when the current phase will end.
+  // This is immune to tab throttling because we diff against Date.now() each
+  // tick instead of trusting that exactly 1 000 ms passed between ticks.
+  const endTimeRef = useRef<number | null>(null);
+
   phaseRef.current = phase;
   sessionCountRef.current = sessionCount;
   settingsRef.current = settings;
   secondsLeftRef.current = secondsLeft;
 
+  // Persist state on every meaningful change
   useEffect(() => {
     saveState({ phase, secondsLeft, sessionCount, isRunning, savedAt: Date.now() });
   }, [phase, secondsLeft, sessionCount, isRunning]);
 
+  // Persist state when page is hidden / unloaded
   useEffect(() => {
     const handleUnload = () => {
       saveState({
@@ -107,6 +115,20 @@ export function usePomodoro({
       handleUnload();
     };
   }, [isRunning]);
+
+  // Re-sync display immediately when the tab becomes visible again
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && endTimeRef.current !== null) {
+        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
+        const clamped = Math.max(0, remaining);
+        setSecondsLeft(clamped);
+        secondsLeftRef.current = clamped;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const playSound = useCallback((type: "work" | "break") => {
     if (!settingsRef.current.soundEnabled) return;
@@ -140,6 +162,8 @@ export function usePomodoro({
 
   const advance = useCallback((isSkip: boolean) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    // Clear the wall-clock anchor whenever a phase ends
+    endTimeRef.current = null;
     setIsRunning(false);
 
     const currentPhase = phaseRef.current;
@@ -165,8 +189,11 @@ export function usePomodoro({
       setSecondsLeft(nextPhase === "longBreak" ? s.longBreakMinutes * 60 : s.breakMinutes * 60);
 
       playSound("break");
-      sendNotification("Focus session complete! 🎉",
-        isSkip ? `You studied for ${actualMinutes} min. Take a break!` : `${s.workMinutes}-min session done. Break time!`
+      sendNotification(
+        "Focus session complete! 🎉",
+        isSkip
+          ? `You studied for ${actualMinutes} min. Take a break!`
+          : `${s.workMinutes}-min session done. Break time!`
       );
 
       if (s.autoStartBreak) setTimeout(() => setIsRunning(true), 100);
@@ -180,42 +207,76 @@ export function usePomodoro({
     }
   }, [onSessionComplete, playSound, sendNotification]);
 
+  // ── Core timer — wall-clock based ──────────────────────────────────────
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      // When paused, clear the anchor so it re-anchors from the current
+      // secondsLeft when the user resumes.
+      endTimeRef.current = null;
       return;
     }
 
-    intervalRef.current = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (phaseRef.current === "work") workSecondsElapsedRef.current += 1;
-        if (prev <= 1) {
-          setTimeout(() => advance(false), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // Anchor end time from the current secondsLeft at the moment we start/resume.
+    // This is set once here and never mutated by the tick callback.
+    endTimeRef.current = Date.now() + secondsLeftRef.current * 1000;
 
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    // Poll at 500 ms so we're accurate to <1 s even if a tick is delayed.
+    intervalRef.current = setInterval(() => {
+      const remaining = Math.round((endTimeRef.current! - Date.now()) / 1000);
+
+      if (remaining <= 0) {
+        // Accumulate any last partial second for work phases
+        if (phaseRef.current === "work") {
+          workSecondsElapsedRef.current = settingsRef.current.workMinutes * 60;
+        }
+        setSecondsLeft(0);
+        secondsLeftRef.current = 0;
+        setTimeout(() => advance(false), 0);
+        return;
+      }
+
+      // Track elapsed work time accurately from the anchor
+      if (phaseRef.current === "work") {
+        const totalWork = settingsRef.current.workMinutes * 60;
+        workSecondsElapsedRef.current = totalWork - remaining;
+      }
+
+      setSecondsLeft(remaining);
+      secondsLeftRef.current = remaining;
+    }, 500);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, advance]);
+  // Note: secondsLeft is intentionally NOT in the dep array — we read it
+  // via secondsLeftRef.current above to avoid resetting the interval on
+  // every tick.
 
   const start = useCallback(() => {
     requestNotificationPermission();
     setIsRunning(true);
   }, [requestNotificationPermission]);
 
-  const pause = useCallback(() => setIsRunning(false), []);
+  const pause = useCallback(() => {
+    setIsRunning(false);
+    // endTimeRef is cleared inside the isRunning effect above
+  }, []);
 
   const reset = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    endTimeRef.current = null;
     setIsRunning(false);
     workSecondsElapsedRef.current = 0;
     const s = settingsRef.current;
-    const secs = phaseRef.current === "work" ? s.workMinutes * 60
-      : phaseRef.current === "break" ? s.breakMinutes * 60
-        : s.longBreakMinutes * 60;
+    const secs =
+      phaseRef.current === "work" ? s.workMinutes * 60
+        : phaseRef.current === "break" ? s.breakMinutes * 60
+          : s.longBreakMinutes * 60;
     setSecondsLeft(secs);
+    secondsLeftRef.current = secs;
     clearState();
   }, []);
 
@@ -223,15 +284,17 @@ export function usePomodoro({
 
   const setPhaseManually = useCallback((p: PomodoroPhase) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    endTimeRef.current = null;
     setIsRunning(false);
     workSecondsElapsedRef.current = 0;
     setPhase(p);
     const s = settingsRef.current;
-    setSecondsLeft(
+    const secs =
       p === "work" ? s.workMinutes * 60
         : p === "break" ? s.breakMinutes * 60
-          : s.longBreakMinutes * 60
-    );
+          : s.longBreakMinutes * 60;
+    setSecondsLeft(secs);
+    secondsLeftRef.current = secs;
   }, []);
 
   const totalSeconds =

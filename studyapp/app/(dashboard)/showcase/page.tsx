@@ -3,10 +3,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload, FolderPlus, Search, Grid3X3, List, FileText,
-  Folder, MoreVertical, Trash2, Edit3, Download,
+  Folder, MoreVertical, Trash2, Edit3,
   ChevronRight, Home, Eye, ZoomIn, ZoomOut,
-  X, Star, ArrowLeft, Maximize, Minimize,
-  Share2, Lock, Globe, Copy, Check, Link,
+  X, Star, ArrowLeft,
+  Share2, Lock, Globe, Copy, Check, Link, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,12 +16,12 @@ interface PDFFile {
   id: string;
   name: string;
   size: number;
-  uploadedAt: Date;
+  uploadedAt: number;
   folderId: string | null;
   starred: boolean;
   url: string;
   base64?: string;
-  shareId?: string;          // unique token for the share link
+  shareId?: string;
   shareVisibility?: "public" | "private" | null;
 }
 
@@ -29,7 +29,7 @@ interface PDFFolder {
   id: string;
   name: string;
   color: string;
-  createdAt: Date;
+  createdAt: number;
   parentId: string | null;
 }
 
@@ -37,8 +37,8 @@ type ViewMode = "grid" | "list";
 type SortKey = "name" | "date" | "size";
 
 const FOLDER_COLORS = [
-  "#00b7ff", "#4ECDC4", "#FF6B6B", "#A78BFA", "#F59E0B",
-  "#34D399", "#F472B6", "#60A5FA",
+  "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
+  "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16",
 ];
 
 function fmtSize(bytes: number) {
@@ -47,39 +47,83 @@ function fmtSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function fmtDate(d: Date) {
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function fmtDate(ts: number) {
+  return new Date(ts).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
 }
 
-// ── localStorage helpers ──────────────────────────────────────────────────────
+// ── Storage helpers (IndexedDB via idb-keyval-like pattern) ──────────────────
+// We use IndexedDB so large base64 PDFs don't blow up localStorage's 5 MB cap.
 
-function serializeFiles(files: PDFFile[]) {
-  return files.map(({ url: _url, ...rest }) => rest);
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open("pdf-showcase", 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore("kv");
+    };
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
 }
 
-function loadFiles(): PDFFile[] {
-  try {
-    const raw = localStorage.getItem("pdf-showcase-files");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Omit<PDFFile, "url">[];
-    return parsed.map((f) => ({
-      ...f,
-      uploadedAt: new Date(f.uploadedAt),
-      url: f.base64 ? `data:application/pdf;base64,${f.base64}` : "",
-    }));
-  } catch {
-    return [];
+async function dbGet<T>(key: string): Promise<T | undefined> {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readonly");
+    const req = tx.objectStore("kv").get(key);
+    req.onsuccess = () => res(req.result as T);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function dbSet(key: string, value: unknown): Promise<void> {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").put(value, key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function dbDel(key: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").delete(key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+type FileMeta = Omit<PDFFile, "url" | "base64">;
+
+async function persistSave(files: PDFFile[], folders: PDFFolder[]) {
+  const meta: FileMeta[] = files.map(({ url: _u, base64: _b, ...rest }) => rest);
+  await dbSet("files-meta", meta);
+  await dbSet("folders", folders);
+  for (const f of files) {
+    if (f.base64) {
+      await dbSet("file-data-" + f.id, f.base64);
+    }
   }
 }
 
-function loadFolders(): PDFFolder[] {
-  try {
-    const raw = localStorage.getItem("pdf-showcase-folders");
-    if (!raw) return [];
-    return JSON.parse(raw).map((f: PDFFolder) => ({ ...f, createdAt: new Date(f.createdAt) }));
-  } catch {
-    return [];
+async function persistLoad(): Promise<{ files: PDFFile[]; folders: PDFFolder[] }> {
+  const meta = (await dbGet<FileMeta[]>("files-meta")) ?? [];
+  const folders = (await dbGet<PDFFolder[]>("folders")) ?? [];
+  const files: PDFFile[] = [];
+  for (const m of meta) {
+    let base64: string | undefined;
+    let url = "";
+    try {
+      base64 = await dbGet<string>("file-data-" + m.id);
+      if (base64) url = "data:application/pdf;base64," + base64;
+    } catch { /* no data */ }
+    files.push({ ...m, base64, url });
   }
+  return { files, folders };
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -146,7 +190,9 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
   const [visibility, setVisibility] = useState<"public" | "private">(
     file.shareVisibility ?? "public"
   );
-  const [shareId] = useState(() => file.shareId ?? crypto.randomUUID().slice(0, 12));
+  const [shareId] = useState(
+    () => file.shareId ?? crypto.randomUUID().slice(0, 12)
+  );
   const [copied, setCopied] = useState(false);
 
   const shareLink = `${typeof window !== "undefined" ? window.location.origin : ""}/showcase/share/${shareId}`;
@@ -155,11 +201,6 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
     navigator.clipboard.writeText(shareLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSave = () => {
-    onSave(shareId, visibility);
-    onClose();
   };
 
   return (
@@ -173,7 +214,6 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
         onClick={(e) => e.stopPropagation()}
         style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/8">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#00b7ff]/15 flex items-center justify-center">
@@ -193,71 +233,49 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Visibility toggle */}
           <div>
             <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Access</p>
             <div className="grid grid-cols-2 gap-2">
-              {/* Public option */}
-              <button
-                onClick={() => setVisibility("public")}
-                className={cn(
-                  "relative flex flex-col items-start gap-2 p-4 rounded-xl border transition-all text-left",
-                  visibility === "public"
-                    ? "border-[#00b7ff]/50 bg-[#00b7ff]/10"
-                    : "border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15"
-                )}
-              >
-                <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                  visibility === "public" ? "bg-[#00b7ff]/20" : "bg-white/8"
-                )}>
-                  <Globe className={cn("w-4 h-4", visibility === "public" ? "text-[#00b7ff]" : "text-white/40")} />
-                </div>
-                <div>
-                  <p className={cn("text-sm font-semibold", visibility === "public" ? "text-white" : "text-white/50")}>
-                    Public
-                  </p>
-                  <p className="text-[10px] text-white/25 leading-tight mt-0.5">Anyone with the link</p>
-                </div>
-                {visibility === "public" && (
-                  <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-[#00b7ff] flex items-center justify-center">
-                    <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+              {(["public", "private"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setVisibility(v)}
+                  className={cn(
+                    "relative flex flex-col items-start gap-2 p-4 rounded-xl border transition-all text-left",
+                    visibility === v
+                      ? v === "public"
+                        ? "border-[#00b7ff]/50 bg-[#00b7ff]/10"
+                        : "border-amber-400/50 bg-amber-400/8"
+                      : "border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15"
+                  )}
+                >
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    visibility === v ? v === "public" ? "bg-[#00b7ff]/20" : "bg-amber-400/20" : "bg-white/8"
+                  )}>
+                    {v === "public"
+                      ? <Globe className={cn("w-4 h-4", visibility === v ? "text-[#00b7ff]" : "text-white/40")} />
+                      : <Lock className={cn("w-4 h-4", visibility === v ? "text-amber-400" : "text-white/40")} />}
                   </div>
-                )}
-              </button>
-
-              {/* Private option */}
-              <button
-                onClick={() => setVisibility("private")}
-                className={cn(
-                  "relative flex flex-col items-start gap-2 p-4 rounded-xl border transition-all text-left",
-                  visibility === "private"
-                    ? "border-amber-400/50 bg-amber-400/8"
-                    : "border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15"
-                )}
-              >
-                <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                  visibility === "private" ? "bg-amber-400/20" : "bg-white/8"
-                )}>
-                  <Lock className={cn("w-4 h-4", visibility === "private" ? "text-amber-400" : "text-white/40")} />
-                </div>
-                <div>
-                  <p className={cn("text-sm font-semibold", visibility === "private" ? "text-white" : "text-white/50")}>
-                    Private
-                  </p>
-                  <p className="text-[10px] text-white/25 leading-tight mt-0.5">Only you can access</p>
-                </div>
-                {visibility === "private" && (
-                  <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center">
-                    <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                  <div>
+                    <p className={cn("text-sm font-semibold capitalize", visibility === v ? "text-white" : "text-white/50")}>{v}</p>
+                    <p className="text-[10px] text-white/25 leading-tight mt-0.5">
+                      {v === "public" ? "Anyone with the link" : "Only you can access"}
+                    </p>
                   </div>
-                )}
-              </button>
+                  {visibility === v && (
+                    <div className={cn(
+                      "absolute top-3 right-3 w-4 h-4 rounded-full flex items-center justify-center",
+                      v === "public" ? "bg-[#00b7ff]" : "bg-amber-400"
+                    )}>
+                      <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Link */}
           <div>
             <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Share link</p>
             <div className="flex items-center gap-2">
@@ -274,43 +292,22 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
                     : "bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
                 )}
               >
-                {copied ? (
-                  <><Check className="w-3.5 h-3.5" /> Copied!</>
-                ) : (
-                  <><Copy className="w-3.5 h-3.5" /> Copy</>
-                )}
+                {copied ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
               </button>
             </div>
-            {visibility === "private" && (
-              <p className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-400/70">
-                <Lock className="w-3 h-3" />
-                This link is restricted — only you can view it
-              </p>
-            )}
-            {visibility === "public" && (
-              <p className="flex items-center gap-1.5 mt-2 text-[11px] text-white/30">
-                <Globe className="w-3 h-3" />
-                Anyone with this link can view the PDF
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-6 pb-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all"
-          >
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all">
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => { onSave(shareId, visibility); onClose(); }}
             className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all"
             style={{ boxShadow: "0 0 20px rgba(0,183,255,0.25)" }}
           >
-            <Share2 className="w-3.5 h-3.5" />
-            Save & Share
+            <Share2 className="w-3.5 h-3.5" /> Save & Share
           </button>
         </div>
       </div>
@@ -319,6 +316,10 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
 }
 
 // ── PDF Viewer ────────────────────────────────────────────────────────────────
+//
+// ✅ We avoid requestFullscreen() — it creates a new stacking context that hides
+//    any fixed elements rendered outside the fullscreen target (e.g. a Pomodoro
+//    widget). Instead we toggle a CSS-only "expanded" mode via fixed+inset-0.
 
 interface ViewerProps {
   file: PDFFile;
@@ -327,48 +328,33 @@ interface ViewerProps {
 
 function PDFViewer({ file, onClose }: ViewerProps) {
   const [zoom, setZoom] = useState(100);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const viewerRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !document.fullscreenElement) onClose();
+      if ((e.target as HTMLElement).tagName === "INPUT") return;
+      if (e.key === "Escape") { if (isExpanded) setIsExpanded(false); else onClose(); }
       if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(200, z + 10));
       if (e.key === "-") setZoom((z) => Math.max(50, z - 10));
-      if (e.key === "f" || e.key === "F") toggleFullscreen();
+      if (e.key === "f" || e.key === "F") setIsExpanded((v) => !v);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
-
-  const toggleFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      await viewerRef.current?.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  };
+  }, [onClose, isExpanded]);
 
   return (
     <div
-      ref={viewerRef}
-      className="fixed inset-0 z-[100] flex flex-col"
-      style={{ background: "#08080F" }}
+      className="fixed inset-0 flex flex-col"
+      style={{ zIndex: isExpanded ? 150 : 100, background: "#08080F" }}
     >
+      {/* Header */}
       <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 shrink-0 bg-[#0e0e1a]/80 backdrop-blur">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all text-sm font-medium"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+            <ArrowLeft className="w-4 h-4" /> Back
           </button>
           <div className="w-px h-5 bg-white/10" />
           <div className="flex items-center gap-2">
@@ -376,19 +362,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
               <FileText className="w-3.5 h-3.5 text-[#00b7ff]" />
             </div>
             <span className="font-semibold text-white text-sm truncate max-w-xs">{file.name}</span>
-            {file.shareVisibility && (
-              <span className={cn(
-                "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
-                file.shareVisibility === "public"
-                  ? "bg-[#00b7ff]/15 text-[#00b7ff]"
-                  : "bg-amber-400/15 text-amber-400"
-              )}>
-                {file.shareVisibility === "public"
-                  ? <><Globe className="w-2.5 h-2.5" /> Public</>
-                  : <><Lock className="w-2.5 h-2.5" /> Private</>
-                }
-              </span>
-            )}
           </div>
         </div>
 
@@ -410,14 +383,6 @@ function PDFViewer({ file, onClose }: ViewerProps) {
           </div>
 
           <button
-            onClick={toggleFullscreen}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
-          >
-            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
-            {isFullscreen ? "Exit" : "Fullscreen"}
-          </button>
-
-          <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors"
           >
@@ -426,8 +391,15 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         </div>
       </div>
 
+      {/* PDF content */}
       <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-[#06060d]">
-        <div style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center", transition: "transform 0.2s ease" }}>
+        <div
+          style={{
+            transform: `scale(${zoom / 100})`,
+            transformOrigin: "top center",
+            transition: "transform 0.2s ease",
+          }}
+        >
           {file.url ? (
             <iframe
               src={`${file.url}#toolbar=0&navpanes=0&scrollbar=0`}
@@ -444,15 +416,13 @@ function PDFViewer({ file, onClose }: ViewerProps) {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur">
+      {/* Keyboard hints */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur pointer-events-none">
         <span className="text-xs text-white/30 font-mono">ESC</span>
         <span className="text-xs text-white/20">close</span>
         <span className="w-px h-3 bg-white/10" />
         <span className="text-xs text-white/30 font-mono">+ / -</span>
         <span className="text-xs text-white/20">zoom</span>
-        <span className="w-px h-3 bg-white/10" />
-        <span className="text-xs text-white/30 font-mono">F</span>
-        <span className="text-xs text-white/20">fullscreen</span>
       </div>
     </div>
   );
@@ -460,21 +430,47 @@ function PDFViewer({ file, onClose }: ViewerProps) {
 
 // ── Rename modal ──────────────────────────────────────────────────────────────
 
-function RenameModal({ current, onSave, onClose }: { current: string; onSave: (v: string) => void; onClose: () => void }) {
+function RenameModal({
+  current,
+  onSave,
+  onClose,
+}: {
+  current: string;
+  onSave: (v: string) => void;
+  onClose: () => void;
+}) {
   const [val, setVal] = useState(current);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(8,8,15,0.8)" }} onClick={onClose}>
-      <div className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(8,8,15,0.8)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3 className="font-bold text-white mb-4">Rename</h3>
         <input
-          autoFocus value={val}
+          autoFocus
+          value={val}
           onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { onSave(val); onClose(); } if (e.key === "Escape") onClose(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { onSave(val); onClose(); }
+            if (e.key === "Escape") onClose();
+          }}
           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
         />
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">Cancel</button>
-          <button onClick={() => { onSave(val); onClose(); }} className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90">Save</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">
+            Cancel
+          </button>
+          <button
+            onClick={() => { onSave(val); onClose(); }}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>
@@ -483,17 +479,34 @@ function RenameModal({ current, onSave, onClose }: { current: string; onSave: (v
 
 // ── New folder modal ──────────────────────────────────────────────────────────
 
-function NewFolderModal({ onSave, onClose }: { onSave: (name: string, color: string) => void; onClose: () => void }) {
+function NewFolderModal({
+  onSave,
+  onClose,
+}: {
+  onSave: (name: string, color: string) => void;
+  onClose: () => void;
+}) {
   const [name, setName] = useState("New Folder");
   const [color, setColor] = useState(FOLDER_COLORS[0]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(8,8,15,0.8)" }} onClick={onClose}>
-      <div className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(8,8,15,0.8)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3 className="font-bold text-white">New Folder</h3>
         <input
-          autoFocus value={name}
+          autoFocus
+          value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { onSave(name, color); onClose(); } if (e.key === "Escape") onClose(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { onSave(name, color); onClose(); }
+            if (e.key === "Escape") onClose();
+          }}
           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
         />
         <div>
@@ -501,16 +514,28 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string, color: str
           <div className="flex flex-wrap gap-2">
             {FOLDER_COLORS.map((c) => (
               <button
-                key={c} onClick={() => setColor(c)}
+                key={c}
+                onClick={() => setColor(c)}
                 className="w-7 h-7 rounded-lg transition-all"
-                style={{ background: c, boxShadow: color === c ? `0 0 0 2px #0e0e1a, 0 0 0 4px ${c}` : "none", transform: color === c ? "scale(1.15)" : "scale(1)" }}
+                style={{
+                  background: c,
+                  boxShadow: color === c ? `0 0 0 2px #0e0e1a, 0 0 0 4px ${c}` : "none",
+                  transform: color === c ? "scale(1.15)" : "scale(1)",
+                }}
               />
             ))}
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">Cancel</button>
-          <button onClick={() => { onSave(name, color); onClose(); }} className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90">Create</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">
+            Cancel
+          </button>
+          <button
+            onClick={() => { onSave(name, color); onClose(); }}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
+          >
+            Create
+          </button>
         </div>
       </div>
     </div>
@@ -520,8 +545,9 @@ function NewFolderModal({ onSave, onClose }: { onSave: (name: string, color: str
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShowcasePage() {
-  const [files, setFiles] = useState<PDFFile[]>(loadFiles);
-  const [folders, setFolders] = useState<PDFFolder[]>(loadFolders);
+  const [files, setFiles] = useState<PDFFile[]>([]);
+  const [folders, setFolders] = useState<PDFFolder[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [search, setSearch] = useState("");
@@ -529,18 +555,32 @@ export default function ShowcasePage() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [viewerFile, setViewerFile] = useState<PDFFile | null>(null);
   const [sharingFile, setSharingFile] = useState<PDFFile | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; type: "file" | "folder"; id: string } | null>(null);
-  const [renaming, setRenaming] = useState<{ type: "file" | "folder"; id: string; current: string } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number; y: number; type: "file" | "folder"; id: string;
+  } | null>(null);
+  const [renaming, setRenaming] = useState<{
+    type: "file" | "folder"; id: string; current: string;
+  } | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const currentFolderIdRef = useRef(currentFolderId);
 
-  useEffect(() => {
-    localStorage.setItem("pdf-showcase-files", JSON.stringify(serializeFiles(files)));
-  }, [files]);
+  useEffect(() => { currentFolderIdRef.current = currentFolderId; }, [currentFolderId]);
 
+  // ── Load from IndexedDB on mount ──────────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem("pdf-showcase-folders", JSON.stringify(folders));
-  }, [folders]);
+    persistLoad().then(({ files: f, folders: fo }) => {
+      setFiles(f);
+      setFolders(fo);
+      setLoaded(true);
+    });
+  }, []);
+
+  // ── Persist whenever data changes (after initial load) ────────────────────
+  useEffect(() => {
+    if (!loaded) return;
+    persistSave(files, folders);
+  }, [files, folders, loaded]);
 
   const breadcrumbs = (() => {
     const crumbs: { id: string | null; name: string }[] = [{ id: null, name: "My PDFs" }];
@@ -561,13 +601,14 @@ export default function ShowcasePage() {
     .sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name);
       if (sortKey === "size") return b.size - a.size;
-      return b.uploadedAt.getTime() - a.uploadedAt.getTime();
+      return b.uploadedAt - a.uploadedAt;
     });
 
   const starredFiles = files.filter((f) => f.starred);
 
   const handleFiles = useCallback(async (fileList: FileList | null) => {
     if (!fileList) return;
+    const targetFolderId = currentFolderIdRef.current;
     const newFiles: PDFFile[] = [];
     for (const f of Array.from(fileList)) {
       if (f.type !== "application/pdf") continue;
@@ -576,45 +617,70 @@ export default function ShowcasePage() {
         id: crypto.randomUUID(),
         name: f.name.replace(/\.pdf$/i, ""),
         size: f.size,
-        uploadedAt: new Date(),
-        folderId: currentFolderId,
+        uploadedAt: Date.now(),
+        folderId: targetFolderId,
         starred: false,
         base64,
         url: `data:application/pdf;base64,${base64}`,
+        shareVisibility: null,
       });
     }
     setFiles((prev) => [...prev, ...newFiles]);
-  }, [currentFolderId]);
+    if (inputRef.current) inputRef.current.value = "";
+  }, []);
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    handleFiles(e.dataTransfer.files);
-  }, [handleFiles]);
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      handleFiles(e.dataTransfer.files);
+    },
+    [handleFiles]
+  );
 
   const createFolder = (name: string, color: string) => {
-    setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, color, createdAt: new Date(), parentId: currentFolderId }]);
+    setFolders((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name, color, createdAt: Date.now(), parentId: currentFolderId },
+    ]);
   };
 
-  const deleteFile = (id: string) => setFiles((p) => p.filter((f) => f.id !== id));
+  const deleteFile = async (id: string) => {
+    setFiles((p) => p.filter((f) => f.id !== id));
+    await dbDel("file-data-" + id);
+  };
+
   const deleteFolder = (id: string) => {
     setFolders((p) => p.filter((f) => f.id !== id));
-    setFiles((p) => p.map((f) => f.folderId === id ? { ...f, folderId: currentFolderId } : f));
+    setFiles((p) =>
+      p.map((f) => (f.folderId === id ? { ...f, folderId: currentFolderIdRef.current } : f))
+    );
   };
 
-  const renameFile = (id: string, name: string) => setFiles((p) => p.map((f) => f.id === id ? { ...f, name } : f));
-  const renameFolder = (id: string, name: string) => setFolders((p) => p.map((f) => f.id === id ? { ...f, name } : f));
-  const toggleStar = (id: string) => setFiles((p) => p.map((f) => f.id === id ? { ...f, starred: !f.starred } : f));
-
-  const saveShare = (fileId: string, shareId: string, visibility: "public" | "private") => {
-    setFiles((p) => p.map((f) => f.id === fileId ? { ...f, shareId, shareVisibility: visibility } : f));
-  };
+  const renameFile = (id: string, name: string) =>
+    setFiles((p) => p.map((f) => (f.id === id ? { ...f, name } : f)));
+  const renameFolder = (id: string, name: string) =>
+    setFolders((p) => p.map((f) => (f.id === id ? { ...f, name } : f)));
+  const toggleStar = (id: string) =>
+    setFiles((p) => p.map((f) => (f.id === id ? { ...f, starred: !f.starred } : f)));
+  const saveShare = (fileId: string, shareId: string, visibility: "public" | "private") =>
+    setFiles((p) =>
+      p.map((f) => (f.id === fileId ? { ...f, shareId, shareVisibility: visibility } : f))
+    );
 
   const openCtxMenu = (e: React.MouseEvent, type: "file" | "folder", id: string) => {
     e.preventDefault();
     e.stopPropagation();
     setCtxMenu({ x: e.clientX, y: e.clientY, type, id });
   };
+
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center h-64 text-white/30 text-sm">
+        Loading…
+      </div>
+    );
+  }
 
   const isEmpty = visibleFolders.length === 0 && visibleFiles.length === 0;
 
@@ -626,8 +692,10 @@ export default function ShowcasePage() {
       onDrop={onDrop}
     >
       {dragging && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
-          style={{ background: "rgba(0,183,255,0.07)", border: "2px dashed #00b7ff" }}>
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
+          style={{ background: "rgba(0,183,255,0.07)", border: "2px dashed #00b7ff" }}
+        >
           <div className="text-center">
             <Upload className="w-12 h-12 text-[#00b7ff] mx-auto mb-3" />
             <p className="text-[#00b7ff] font-bold text-xl">Drop PDFs here</p>
@@ -639,16 +707,32 @@ export default function ShowcasePage() {
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="font-display font-black text-2xl">PDF Showcase</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">{files.length} files · {folders.length} folders</p>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            {files.length} files · {folders.length} folders
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowNewFolder(true)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all">
+          <button
+            onClick={() => setShowNewFolder(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all"
+          >
             <FolderPlus className="w-4 h-4" /> New Folder
           </button>
-          <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all shadow-lg" style={{ boxShadow: "0 0 20px rgba(0,183,255,0.3)" }}>
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all shadow-lg"
+            style={{ boxShadow: "0 0 20px rgba(0,183,255,0.3)" }}
+          >
             <Upload className="w-4 h-4" /> Upload PDF
           </button>
-          <input ref={inputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
         </div>
       </div>
 
@@ -658,8 +742,17 @@ export default function ShowcasePage() {
           {breadcrumbs.map((crumb, i) => (
             <span key={crumb.id ?? "root"} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-white/20" />}
-              <button onClick={() => setCurrentFolderId(crumb.id)} className={cn("px-2 py-1 rounded-lg transition-colors font-medium", i === breadcrumbs.length - 1 ? "text-white" : "text-white/40 hover:text-white hover:bg-white/5")}>
-                {i === 0 && <Home className="w-3.5 h-3.5 inline mr-1" />}{crumb.name}
+              <button
+                onClick={() => setCurrentFolderId(crumb.id)}
+                className={cn(
+                  "px-2 py-1 rounded-lg transition-colors font-medium",
+                  i === breadcrumbs.length - 1
+                    ? "text-white"
+                    : "text-white/40 hover:text-white hover:bg-white/5"
+                )}
+              >
+                {i === 0 && <Home className="w-3.5 h-3.5 inline mr-1" />}
+                {crumb.name}
               </button>
             </span>
           ))}
@@ -667,16 +760,35 @@ export default function ShowcasePage() {
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="w-44 pl-8 pr-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/30" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className="w-44 pl-8 pr-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/30"
+          />
         </div>
-        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white/60 focus:outline-none appearance-none cursor-pointer">
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white/60 focus:outline-none appearance-none cursor-pointer"
+        >
           <option value="date">By date</option>
           <option value="name">By name</option>
           <option value="size">By size</option>
         </select>
         <div className="flex rounded-xl border border-white/10 overflow-hidden">
-          <button onClick={() => setViewMode("grid")} className={cn("px-2.5 py-1.5 transition-colors", viewMode === "grid" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}><Grid3X3 className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setViewMode("list")} className={cn("px-2.5 py-1.5 transition-colors", viewMode === "list" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}><List className="w-3.5 h-3.5" /></button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "grid" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}
+          >
+            <Grid3X3 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "list" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -688,7 +800,11 @@ export default function ShowcasePage() {
           </p>
           <div className="flex gap-3 overflow-x-auto pb-1">
             {starredFiles.map((f) => (
-              <button key={f.id} onClick={() => setViewerFile(f)} className="flex-none flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 transition-all">
+              <button
+                key={f.id}
+                onClick={() => setViewerFile(f)}
+                className="flex-none flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 transition-all"
+              >
                 <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="text-xs font-medium text-white/70 max-w-[100px] truncate">{f.name}</span>
               </button>
@@ -700,7 +816,10 @@ export default function ShowcasePage() {
       {/* Content */}
       <div className="flex-1 overflow-auto min-h-0">
         {isEmpty && !search ? (
-          <div className="flex flex-col items-center justify-center h-80 rounded-2xl border-2 border-dashed border-white/10 cursor-pointer hover:border-[#00b7ff]/40 hover:bg-[#00b7ff]/5 transition-all group" onClick={() => inputRef.current?.click()}>
+          <div
+            className="flex flex-col items-center justify-center h-80 rounded-2xl border-2 border-dashed border-white/10 cursor-pointer hover:border-[#00b7ff]/40 hover:bg-[#00b7ff]/5 transition-all group"
+            onClick={() => inputRef.current?.click()}
+          >
             <div className="w-16 h-16 rounded-2xl bg-[#00b7ff]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Upload className="w-7 h-7 text-[#00b7ff]" />
             </div>
@@ -710,43 +829,66 @@ export default function ShowcasePage() {
         ) : isEmpty ? (
           <div className="flex flex-col items-center justify-center h-40 text-white/30">
             <Search className="w-8 h-8 mb-2 opacity-40" />
-            <p className="text-sm">No results for "{search}"</p>
+            <p className="text-sm">No results for &ldquo;{search}&rdquo;</p>
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {visibleFolders.map((folder) => (
-              <div key={folder.id} className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer p-4 flex flex-col items-center gap-2 hover:border-white/15"
-                onDoubleClick={() => setCurrentFolderId(folder.id)} onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}>
-                <Folder className="w-12 h-12 transition-transform group-hover:scale-105" style={{ color: folder.color, fill: `${folder.color}30` }} />
+              <div
+                key={folder.id}
+                className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer p-4 flex flex-col items-center gap-2 hover:border-white/15"
+                onDoubleClick={() => setCurrentFolderId(folder.id)}
+                onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}
+              >
+                <Folder
+                  className="w-12 h-12 transition-transform group-hover:scale-105"
+                  style={{ color: folder.color, fill: `${folder.color}30` }}
+                />
                 <p className="text-xs font-semibold text-white/70 text-center truncate w-full">{folder.name}</p>
-                <p className="text-[10px] text-white/25">{files.filter((f) => f.folderId === folder.id).length} files</p>
+                <p className="text-[10px] text-white/25">
+                  {files.filter((f) => f.folderId === folder.id).length} files
+                </p>
               </div>
             ))}
+
             {visibleFiles.map((file) => (
-              <div key={file.id} className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer overflow-hidden"
-                onContextMenu={(e) => openCtxMenu(e, "file", file.id)}>
-                <div className="h-28 flex items-center justify-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}>
+              <div
+                key={file.id}
+                className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer overflow-hidden"
+                onContextMenu={(e) => openCtxMenu(e, "file", file.id)}
+              >
+                <div
+                  className="h-28 flex items-center justify-center relative overflow-hidden"
+                  style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}
+                >
                   <FileText className="w-10 h-10 text-[#00b7ff]/60 group-hover:scale-110 transition-transform" />
                   {file.starred && <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-                  {/* Visibility badge */}
                   {file.shareVisibility && (
                     <span className={cn(
                       "absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold",
-                      file.shareVisibility === "public"
-                        ? "bg-[#00b7ff]/20 text-[#00b7ff]"
-                        : "bg-amber-400/20 text-amber-400"
+                      file.shareVisibility === "public" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "bg-amber-400/20 text-amber-400"
                     )}>
                       {file.shareVisibility === "public"
                         ? <><Globe className="w-2 h-2" /> Public</>
-                        : <><Lock className="w-2 h-2" /> Private</>
-                      }
+                        : <><Lock className="w-2 h-2" /> Private</>}
                     </span>
                   )}
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.7)" }}>
-                    <button onClick={() => setViewerFile(file)} className="w-9 h-9 rounded-xl bg-[#00b7ff] text-black flex items-center justify-center hover:scale-110 transition-transform" title="Open">
+                  <div
+                    className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(0,0,0,0.7)" }}
+                  >
+                    <button
+                      onClick={() => setViewerFile(file)}
+                      className="w-9 h-9 rounded-xl bg-[#00b7ff] text-black flex items-center justify-center hover:scale-110 transition-transform"
+                      title="Open"
+                    >
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center hover:scale-110 hover:bg-white/20 transition-all" title="Share">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSharingFile(file); }}
+                      className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center hover:scale-110 hover:bg-white/20 transition-all"
+                      title="Share"
+                    >
                       <Share2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -757,6 +899,20 @@ export default function ShowcasePage() {
                 </div>
               </div>
             ))}
+
+            {/* Add tile */}
+            {!search && (
+              <div
+                onClick={() => inputRef.current?.click()}
+                className="group rounded-2xl border-2 border-dashed border-white/8 hover:border-[#00b7ff]/50 hover:bg-[#00b7ff]/5 transition-all cursor-pointer flex flex-col items-center justify-center gap-2"
+                style={{ minHeight: "140px" }}
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/4 group-hover:bg-[#00b7ff]/15 flex items-center justify-center transition-colors">
+                  <Plus className="w-5 h-5 text-white/20 group-hover:text-[#00b7ff] transition-colors" />
+                </div>
+                <p className="text-[10px] font-semibold text-white/20 group-hover:text-[#00b7ff]/70 transition-colors">Add PDFs</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-2xl border border-white/8 overflow-hidden">
@@ -772,27 +928,40 @@ export default function ShowcasePage() {
               </thead>
               <tbody>
                 {visibleFolders.map((folder) => (
-                  <tr key={folder.id} className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
-                    onDoubleClick={() => setCurrentFolderId(folder.id)} onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}>
+                  <tr
+                    key={folder.id}
+                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
+                    onDoubleClick={() => setCurrentFolderId(folder.id)}
+                    onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Folder className="w-5 h-5 shrink-0" style={{ color: folder.color, fill: `${folder.color}30` }} />
                         <span className="font-medium text-white/80">{folder.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">{files.filter((f) => f.folderId === folder.id).length} files</td>
+                    <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">
+                      {files.filter((f) => f.folderId === folder.id).length} files
+                    </td>
                     <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(folder.createdAt)}</td>
                     <td className="px-4 py-3 hidden md:table-cell" />
                     <td className="px-4 py-3 text-right">
-                      <button onClick={(e) => openCtxMenu(e, "folder", folder.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={(e) => openCtxMenu(e, "folder", folder.id)}
+                        className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white opacity-0 group-hover:opacity-100"
+                      >
                         <MoreVertical className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
                 ))}
                 {visibleFiles.map((file) => (
-                  <tr key={file.id} className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
-                    onDoubleClick={() => setViewerFile(file)} onContextMenu={(e) => openCtxMenu(e, "file", file.id)}>
+                  <tr
+                    key={file.id}
+                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
+                    onDoubleClick={() => setViewerFile(file)}
+                    onContextMenu={(e) => openCtxMenu(e, "file", file.id)}
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 shrink-0 text-[#00b7ff]/60" />
@@ -806,14 +975,11 @@ export default function ShowcasePage() {
                       {file.shareVisibility ? (
                         <span className={cn(
                           "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
-                          file.shareVisibility === "public"
-                            ? "bg-[#00b7ff]/15 text-[#00b7ff]"
-                            : "bg-amber-400/15 text-amber-400"
+                          file.shareVisibility === "public" ? "bg-[#00b7ff]/15 text-[#00b7ff]" : "bg-amber-400/15 text-amber-400"
                         )}>
                           {file.shareVisibility === "public"
                             ? <><Globe className="w-2.5 h-2.5" /> Public</>
-                            : <><Lock className="w-2.5 h-2.5" /> Private</>
-                          }
+                            : <><Lock className="w-2.5 h-2.5" /> Private</>}
                         </span>
                       ) : (
                         <span className="text-white/15 text-xs">—</span>
@@ -821,13 +987,29 @@ export default function ShowcasePage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
-                        <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-[#00b7ff]/20 text-white/30 hover:text-[#00b7ff]" title="Open"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white" title="Share"><Share2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-[#00b7ff]/20 text-white/30 hover:text-[#00b7ff]"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white"><Share2 className="w-3.5 h-3.5" /></button>
                         <button onClick={(e) => openCtxMenu(e, "file", file.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white"><MoreVertical className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
                 ))}
+                {/* Add more row */}
+                {!search && (
+                  <tr
+                    className="hover:bg-[#00b7ff]/5 transition-colors cursor-pointer group"
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    <td className="px-4 py-3" colSpan={5}>
+                      <div className="flex items-center gap-3 text-white/20 group-hover:text-[#00b7ff]/60 transition-colors">
+                        <div className="w-5 h-5 rounded border border-dashed border-white/15 group-hover:border-[#00b7ff]/40 flex items-center justify-center transition-colors shrink-0">
+                          <Plus className="w-3 h-3" />
+                        </div>
+                        <span className="text-xs font-medium">Add more PDFs…</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -836,7 +1018,9 @@ export default function ShowcasePage() {
 
       {/* Context menus */}
       {ctxMenu?.type === "file" && (
-        <CtxMenu x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)}
+        <CtxMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
           items={[
             { label: "Open", icon: <Eye className="w-3.5 h-3.5" />, onClick: () => { const f = files.find((f) => f.id === ctxMenu.id); if (f) setViewerFile(f); } },
             { label: "Share", icon: <Share2 className="w-3.5 h-3.5" />, onClick: () => { const f = files.find((f) => f.id === ctxMenu.id); if (f) setSharingFile(f); } },
@@ -847,7 +1031,9 @@ export default function ShowcasePage() {
         />
       )}
       {ctxMenu?.type === "folder" && (
-        <CtxMenu x={ctxMenu.x} y={ctxMenu.y} onClose={() => setCtxMenu(null)}
+        <CtxMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
           items={[
             { label: "Open", icon: <Folder className="w-3.5 h-3.5" />, onClick: () => setCurrentFolderId(ctxMenu.id) },
             { label: "Rename", icon: <Edit3 className="w-3.5 h-3.5" />, onClick: () => { const f = folders.find((f) => f.id === ctxMenu.id); if (f) setRenaming({ type: "folder", id: f.id, current: f.name }); } },
@@ -873,7 +1059,6 @@ export default function ShowcasePage() {
         />
       )}
 
-      {/* Viewer */}
       {viewerFile && <PDFViewer file={viewerFile} onClose={() => setViewerFile(null)} />}
     </div>
   );

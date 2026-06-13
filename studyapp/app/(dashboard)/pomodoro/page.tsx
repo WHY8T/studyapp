@@ -150,6 +150,20 @@ export default function PomodoroPage() {
 
   const { phase, isRunning, formattedTime, progress, sessionCount, start, pause, reset, skipPhase, setPhase } =
     usePomodoro({ onSessionComplete: handleSessionComplete, settings: { workMinutes, breakMinutes, longBreakMinutes, sessionsBeforeLongBreak, autoStartBreak, autoStartWork } });
+  useEffect(() => {
+    const onSync = (e: Event) => {
+      const { mode, remaining, running } = (e as CustomEvent).detail;
+      const phaseMap: Record<string, PomodoroPhase> = {
+        work: "work", short: "break", long: "longBreak",
+      };
+      if (phaseMap[mode]) setPhase(phaseMap[mode]);
+      if (running && !isRunning) start();
+      if (!running && isRunning) pause();
+    };
+    window.addEventListener("pomodoro-sync", onSync);
+    return () => window.removeEventListener("pomodoro-sync", onSync);
+  }, [isRunning, start, pause, setPhase]);
+
 
   const handleStartPause = useCallback(() => {
     if (!isRunning) {
