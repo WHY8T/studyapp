@@ -26,10 +26,10 @@ export function DashboardShell({
             {sidebarOpen && (
                 <>
                     <div
-                        className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+                        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
                         onClick={() => setSidebarOpen(false)}
                     />
-                    <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+                    <div className="fixed inset-y-0 left-0 z-50 lg:hidden animate-in slide-in-from-left-full duration-200">
                         <Sidebar profile={profile} onClose={() => setSidebarOpen(false)} />
                     </div>
                 </>
@@ -41,7 +41,7 @@ export function DashboardShell({
                     profile={profile}
                     onMenuToggle={() => setSidebarOpen(true)}
                 />
-                <main className="flex-1 overflow-y-auto scrollbar-thin">
+                <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ overscrollBehavior: "none", WebkitOverflowScrolling: "touch" as any }}>
                     <div className="p-4 lg:p-6 max-w-7xl mx-auto">{children}</div>
                 </main>
             </div>

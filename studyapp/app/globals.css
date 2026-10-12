@@ -1,4 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+html,
+body {
+  overscroll-behavior: none !important;
+  overscroll-behavior-x: none !important;
+  overscroll-behavior-y: none !important;
+  touch-action: pan-y;
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
 
 @tailwind base;
 @tailwind components;
@@ -6,66 +22,60 @@
 
 @layer base {
   :root {
-    --background: 50 30% 97%;
-    --foreground: 230 25% 10%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 230 25% 10%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 230 25% 10%;
-    --primary: 197 100% 50%;
-    --primary-foreground: 230 25% 8%;
-    --secondary: 230 15% 90%;
-    --secondary-foreground: 230 25% 20%;
-    --muted: 230 15% 94%;
-    --muted-foreground: 230 15% 50%;
-    --accent: 197 100% 50%;
-    --accent-foreground: 230 25% 8%;
-    --destructive: 0 84% 60%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 188 65% 40%;
+    --primary-foreground: 240 10% 3.9%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 188 65% 40%;
+    --accent-foreground: 240 10% 3.9%;
+    --success: 140 63% 33%;
+    --success-foreground: 0 0% 100%;
+    --danger: 356 72% 47%;
+    --danger-foreground: 0 0% 100%;
+    --warning: 40 100% 30%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 356 72% 47%;
     --destructive-foreground: 0 0% 100%;
-    --border: 230 15% 88%;
-    --input: 230 15% 88%;
-    --ring: 197 100% 40%;
-    --radius: 0.75rem;
-
-    --lime: #00b7ff;
-    --lime-dim: #56cfff;
-    --coral: #FF6B6B;
-    --surface-1: #FFFFFF;
-    --surface-2: #F5F5F0;
-    --surface-3: #EEEEE8;
-    --glow-lime: 0 0 20px rgba(0, 183, 255, 0.4);
-    --glow-coral: 0 0 20px rgba(255, 107, 107, 0.4);
+    --border: 240 4.9% 83.9%;
+    --input: 240 4.9% 83.9%;
+    --ring: 188 55% 42%;
+    --radius: 0.375rem;
   }
 
   .dark {
-    --background: 230 30% 5%;
-    --foreground: 210 20% 92%;
-    --card: 230 28% 8%;
-    --card-foreground: 210 20% 92%;
-    --popover: 230 28% 8%;
-    --popover-foreground: 210 20% 92%;
-    --primary: 197 100% 50%;
-    --primary-foreground: 230 25% 8%;
-    --secondary: 230 20% 14%;
-    --secondary-foreground: 210 20% 80%;
-    --muted: 230 20% 12%;
-    --muted-foreground: 230 15% 50%;
-    --accent: 197 100% 50%;
-    --accent-foreground: 230 25% 8%;
-    --destructive: 0 72% 51%;
+    --background: 240 10% 3.9%;
+    --foreground: 240 4.8% 95.9%;
+    --card: 240 9.2% 6.5%;
+    --card-foreground: 240 4.8% 95.9%;
+    --popover: 240 5.9% 10%;
+    --popover-foreground: 240 4.8% 95.9%;
+    --primary: 188 55% 34%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 240 4.8% 95.9%;
+    --muted: 240 5.9% 10%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 188 55% 34%;
+    --accent-foreground: 0 0% 100%;
+    --success: 132 59% 33%;
+    --success-foreground: 0 0% 100%;
+    --danger: 0 69% 53%;
+    --danger-foreground: 0 0% 100%;
+    --warning: 41 72% 48%;
+    --warning-foreground: 240 10% 3.9%;
+    --destructive: 0 69% 53%;
     --destructive-foreground: 0 0% 100%;
-    --border: 230 20% 14%;
-    --input: 230 20% 14%;
-    --ring: 197 100% 50%;
-
-    --lime: #00b7ff;
-    --lime-dim: #56cfff;
-    --coral: #FF6B6B;
-    --surface-1: #0D0D18;
-    --surface-2: #12121F;
-    --surface-3: #1A1A2E;
-    --glow-lime: 0 0 30px rgba(0, 183, 255, 0.25);
-    --glow-coral: 0 0 30px rgba(255, 107, 107, 0.25);
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 188 55% 50%;
   }
 
   * {
@@ -79,12 +89,12 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     width: 100%;
-    overflow-x: hidden;
   }
 
   img,
@@ -102,7 +112,7 @@
   h4,
   h5,
   h6 {
-    @apply font-display;
+    @apply font-semibold;
     word-break: break-word;
   }
 
@@ -114,61 +124,16 @@
 }
 
 @layer utilities {
-  .font-display {
-    font-family: var(--font-syne), sans-serif;
-  }
-
-  .font-body {
-    font-family: var(--font-dm-sans), sans-serif;
-  }
-
   .font-mono {
     font-family: var(--font-jetbrains), monospace;
   }
 
-  .glass {
-    @apply backdrop-blur-xl border border-white/10;
-    background: rgba(255, 255, 255, 0.04);
+  .arabic {
+    font-family: var(--font-arabic);
   }
 
-  .glass-strong {
-    @apply backdrop-blur-2xl border border-white/15;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .text-lime {
-    color: var(--lime);
-  }
-
-  .bg-lime {
-    background-color: var(--lime);
-  }
-
-  .border-lime {
-    border-color: var(--lime);
-  }
-
-  .text-coral {
-    color: var(--coral);
-  }
-
-  .bg-coral {
-    background-color: var(--coral);
-  }
-
-  .glow-lime {
-    box-shadow: var(--glow-lime);
-  }
-
-  .glow-coral {
-    box-shadow: var(--glow-coral);
-  }
-
-  .bg-grid {
-    background-image:
-      linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px);
-    background-size: 32px 32px;
+  .text-muted-foreground {
+    color: var(--muted-foreground);
   }
 
   .scrollbar-thin {
@@ -189,37 +154,6 @@
     border-radius: 2px;
   }
 
-  .text-gradient-lime {
-    background: linear-gradient(135deg, #409dc2 0%, #008fc7 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .card-hover {
-    @apply transition-all duration-300;
-  }
-
-  .card-hover:hover {
-    @apply -translate-y-1;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-  }
-
-  .level-badge {
-    @apply inline-flex items-center justify-center rounded-full font-display font-bold text-xs;
-    background: linear-gradient(135deg, #409dc2, #008fc7);
-    color: #0D0D18;
-    min-width: 1.75rem;
-    min-height: 1.75rem;
-    box-shadow: 0 0 12px rgba(0, 183, 255, 0.5);
-  }
-
-  .streak-active {
-    background: linear-gradient(135deg, #FF6B35, #FF4444);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
 
   /* RESPONSIVE HELPERS */
 
@@ -262,23 +196,128 @@ input[type="range"]::-webkit-slider-runnable-track {
 
 input[type="range"]::-webkit-slider-thumb {
   @apply appearance-none w-4 h-4 rounded-full -mt-1;
-  background: var(--lime);
-  box-shadow: 0 0 8px rgba(0, 183, 255, 0.5);
+  background: hsl(var(--ring));
 }
 
 /* Focus */
 :focus-visible {
-  outline: 2px solid var(--lime);
+  outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
 
 /* Calendar */
 .react-calendar {
-  @apply bg-transparent border-0 w-full font-body;
+  @apply w-full border-0 bg-transparent font-body text-foreground;
+}
+
+.react-calendar__navigation {
+  @apply mb-4 flex items-center justify-between gap-1;
+}
+
+.react-calendar__navigation button {
+  @apply h-8 rounded-md px-2 text-sm font-medium text-foreground transition-colors;
+  min-width: 2rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.react-calendar__navigation button:hover {
+  @apply bg-muted;
+}
+
+.react-calendar__navigation button:disabled {
+  @apply cursor-not-allowed opacity-40;
+}
+
+.react-calendar__navigation button:disabled:hover {
+  background: transparent;
+}
+
+.react-calendar__navigation__label {
+  @apply flex-1 text-center font-display text-sm font-semibold;
+}
+
+.react-calendar__month-view__weekdays {
+  @apply mb-1 grid grid-cols-7 gap-0.5;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  @apply py-1 text-center text-xs font-medium;
+  color: hsl(var(--muted-foreground));
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+
+.react-calendar__month-view__days {
+  @apply grid grid-cols-7 gap-0.5;
+}
+
+.react-calendar__year-view__months,
+.react-calendar__decade-view__years,
+.react-calendar__century-view__decades {
+  @apply grid gap-1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.react-calendar__decade-view__years {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.react-calendar__century-view__decades {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.react-calendar__year-view__months .react-calendar__tile,
+.react-calendar__decade-view__years .react-calendar__tile,
+.react-calendar__century-view__decades .react-calendar__tile {
+  @apply py-3;
 }
 
 .react-calendar__tile {
-  @apply text-xs sm:text-sm rounded-lg p-2;
+  @apply relative rounded-md p-2 text-center text-xs text-foreground transition-colors sm:text-sm;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.react-calendar__tile:enabled:hover {
+  @apply bg-muted;
+}
+
+.react-calendar__tile:disabled {
+  color: hsl(var(--muted-foreground) / 0.5);
+  cursor: not-allowed;
+}
+
+.react-calendar__tile:disabled:hover {
+  background: transparent;
+}
+
+.react-calendar__month-view__days__day--weekend,
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: hsl(var(--muted-foreground));
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  opacity: 0.6;
+}
+
+.react-calendar__tile--now {
+  @apply font-semibold;
+  color: hsl(var(--primary));
+}
+
+.react-calendar__tile--active {
+  @apply font-semibold;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.react-calendar__tile--active:enabled:hover {
+  background: hsl(var(--primary) / 0.9);
 }
 
 /* Mobile fix */
@@ -289,10 +328,5 @@ input[type="range"]::-webkit-slider-thumb {
 
   h2 {
     font-size: clamp(1.5rem, 6vw, 2.5rem);
-  }
-
-  .glass,
-  .glass-strong {
-    padding: 1rem;
   }
 }

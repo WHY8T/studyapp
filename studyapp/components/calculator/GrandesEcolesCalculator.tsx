@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { RefreshCw, ChevronDown, ChevronUp, AlertCircle, Plus, Trash2 } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-
-type GradeMode = "note20" | "td8exam12" | "td20exam20";
 
 type Subject = {
     id: string;
@@ -13,6 +11,8 @@ type Subject = {
     nameFr: string;
     nameEn: string;
     coef: number;
+    hasTD?: boolean;   // TD worth 40%, exam 60%
+    hasTP?: boolean;   // TP worth 33%, exam 67%
     isCustom?: boolean;
 };
 
@@ -34,324 +34,370 @@ type School = {
     years: SchoolYear[];
 };
 
-type GradeEntry = { mode: GradeMode; note: string; td: string; exam: string };
+type GradeMode = "full20" | "td8exam12";
+type GradeEntry = { exam: string; td: string; mode: GradeMode };
 type Grades = Record<string, GradeEntry>;
 
-// ─── Data ──────────────────────────────────────────────────────────────────────
+// ─── School Data ───────────────────────────────────────────────────────────────
 
 const SCHOOLS: School[] = [
     {
-        id: "esc", nameAr: "المدرسة العليا للتجارة", nameFr: "École Supérieure de Commerce", nameEn: "Higher School of Commerce", acronym: "ESC", color: "#3b82f6",
+        id: "enssea",
+        nameAr: "المدرسة الوطنية العليا للإحصاء والاقتصاد التطبيقي",
+        nameFr: "École Nationale Supérieure de Statistique et d'Économie Appliquée",
+        nameEn: "ENSSEA — Statistics & Applied Economics",
+        acronym: "ENSSEA",
+        color: "#8b5cf6",
+        years: [
+            {
+                id: "y1", nameAr: "السنة الأولى", nameFr: "1ère Année", nameEn: "1st Year",
+                subjects: [
+                    { id: "analyse1", nameAr: "تحليل رياضي 1", nameFr: "Analyse mathématique 1", nameEn: "Mathematical Analysis 1", coef: 5, hasTD: true },
+                    { id: "algebra1", nameAr: "جبر خطي 1", nameFr: "Algèbre linéaire 1", nameEn: "Linear Algebra 1", coef: 4, hasTD: true },
+                    { id: "proba1", nameAr: "احتمالات 1", nameFr: "Probabilités 1", nameEn: "Probability 1", coef: 4, hasTD: true },
+                    { id: "info1", nameAr: "إعلام آلي 1", nameFr: "Informatique 1", nameEn: "Computer Science 1", coef: 3, hasTD: true },
+                    { id: "eco1", nameAr: "اقتصاد 1", nameFr: "Économie 1", nameEn: "Economics 1", coef: 3, hasTD: false },
+                    { id: "fr1", nameAr: "فرنسية 1", nameFr: "Français 1", nameEn: "French 1", coef: 2, hasTD: false },
+                    { id: "en1", nameAr: "إنجليزية 1", nameFr: "Anglais 1", nameEn: "English 1", coef: 2, hasTD: false },
+                ],
+            },
+            {
+                id: "y2", nameAr: "السنة الثانية", nameFr: "2ème Année", nameEn: "2nd Year",
+                subjects: [
+                    { id: "analyse2", nameAr: "تحليل رياضي 2", nameFr: "Analyse mathématique 2", nameEn: "Mathematical Analysis 2", coef: 5, hasTD: true },
+                    { id: "proba2", nameAr: "احتمالات 2", nameFr: "Probabilités 2", nameEn: "Probability 2", coef: 5, hasTD: true },
+                    { id: "algebra2", nameAr: "جبر خطي 2", nameFr: "Algèbre linéaire 2", nameEn: "Linear Algebra 2", coef: 4, hasTD: true },
+                    { id: "stat1", nameAr: "إحصاء 1", nameFr: "Statistiques 1", nameEn: "Statistics 1", coef: 4, hasTD: true },
+                    { id: "info2", nameAr: "إعلام آلي 2", nameFr: "Informatique 2", nameEn: "Computer Science 2", coef: 3, hasTD: true },
+                    { id: "eco2", nameAr: "اقتصاد 2", nameFr: "Économie 2", nameEn: "Economics 2", coef: 2, hasTD: false },
+                    { id: "en2", nameAr: "إنجليزية 2", nameFr: "Anglais 2", nameEn: "English 2", coef: 2, hasTD: false },
+                ],
+            },
+            {
+                id: "y3", nameAr: "السنة الثالثة", nameFr: "3ème Année", nameEn: "3rd Year",
+                subjects: [
+                    { id: "stat2", nameAr: "إحصاء رياضي", nameFr: "Statistique mathématique", nameEn: "Mathematical Statistics", coef: 5, hasTD: true },
+                    { id: "econometrie", nameAr: "قياس اقتصادي", nameFr: "Économétrie", nameEn: "Econometrics", coef: 5, hasTD: true },
+                    { id: "sondage", nameAr: "نظرية المسح", nameFr: "Théorie des sondages", nameEn: "Survey Theory", coef: 4, hasTD: true },
+                    { id: "proba3", nameAr: "احتمالات 3", nameFr: "Probabilités 3", nameEn: "Probability 3", coef: 4, hasTD: true },
+                    { id: "info3", nameAr: "إعلام آلي 3", nameFr: "Informatique stat.", nameEn: "Statistical Computing", coef: 3, hasTD: true },
+                    { id: "demo", nameAr: "ديموغرافيا", nameFr: "Démographie", nameEn: "Demography", coef: 3, hasTD: false },
+                    { id: "en3", nameAr: "إنجليزية تقنية", nameFr: "Anglais technique", nameEn: "Technical English", coef: 2, hasTD: false },
+                ],
+            },
+            {
+                id: "y4", nameAr: "السنة الرابعة", nameFr: "4ème Année", nameEn: "4th Year",
+                subjects: [
+                    { id: "stat3", nameAr: "إحصاء تطبيقي", nameFr: "Statistique appliquée", nameEn: "Applied Statistics", coef: 5, hasTD: true },
+                    { id: "econometrie2", nameAr: "قياس اقتصادي 2", nameFr: "Économétrie 2", nameEn: "Econometrics 2", coef: 5, hasTD: true },
+                    { id: "sondage2", nameAr: "منهجية المسح", nameFr: "Méthodologie des sondages", nameEn: "Survey Methodology", coef: 4, hasTD: true },
+                    { id: "analyse_don", nameAr: "تحليل البيانات", nameFr: "Analyse des données", nameEn: "Data Analysis", coef: 4, hasTD: true },
+                    { id: "macro", nameAr: "اقتصاد كلي", nameFr: "Macroéconomie", nameEn: "Macroeconomics", coef: 3, hasTD: false },
+                    { id: "recherche", nameAr: "بحث عمليات", nameFr: "Recherche opérationnelle", nameEn: "Operations Research", coef: 3, hasTD: true },
+                    { id: "en4", nameAr: "إنجليزية 4", nameFr: "Anglais 4", nameEn: "English 4", coef: 2, hasTD: false },
+                ],
+            },
+            {
+                id: "y5", nameAr: "السنة الخامسة", nameFr: "5ème Année", nameEn: "5th Year",
+                subjects: [
+                    { id: "stat_inf", nameAr: "إحصاء استدلالي", nameFr: "Statistique inférentielle", nameEn: "Inferential Statistics", coef: 5, hasTD: true },
+                    { id: "analyse_multi", nameAr: "تحليل متعدد المتغيرات", nameFr: "Analyse multivariée", nameEn: "Multivariate Analysis", coef: 5, hasTD: true },
+                    { id: "big_data", nameAr: "البيانات الضخمة", nameFr: "Big Data & Machine Learning", nameEn: "Big Data & Machine Learning", coef: 4, hasTD: true },
+                    { id: "memoire", nameAr: "مذكرة التخرج", nameFr: "Mémoire de fin d'études", nameEn: "Final Dissertation", coef: 6, hasTD: false },
+                    { id: "stage", nameAr: "تربص ميداني", nameFr: "Stage pratique", nameEn: "Practical Internship", coef: 4, hasTD: false },
+                    { id: "en5", nameAr: "إنجليزية علمية", nameFr: "Anglais scientifique", nameEn: "Scientific English", coef: 2, hasTD: false },
+                ],
+            },
+        ],
+    },
+    {
+        id: "esc",
+        nameAr: "المدرسة العليا للتجارة",
+        nameFr: "École Supérieure de Commerce",
+        nameEn: "Higher School of Commerce",
+        acronym: "ESC",
+        color: "#3b82f6",
         years: [
             {
                 id: "y1", nameAr: "السنة الأولى تحضيري", nameFr: "1ère année prépa", nameEn: "1st Preparatory Year",
                 subjects: [
-                    { id: "math1", nameAr: "رياضيات 1", nameFr: "Mathématiques 1", nameEn: "Mathematics 1", coef: 4 },
-                    { id: "stat1", nameAr: "إحصاء 1", nameFr: "Statistiques 1", nameEn: "Statistics 1", coef: 3 },
-                    { id: "compta", nameAr: "محاسبة عامة", nameFr: "Comptabilité générale", nameEn: "General Accounting", coef: 3 },
-                    { id: "eco1", nameAr: "اقتصاد كلي", nameFr: "Macroéconomie", nameEn: "Macroeconomics", coef: 3 },
-                    { id: "droit", nameAr: "قانون", nameFr: "Droit", nameEn: "Law", coef: 2 },
-                    { id: "fr1", nameAr: "لغة فرنسية 1", nameFr: "Français 1", nameEn: "French 1", coef: 2 },
-                    { id: "en1", nameAr: "لغة إنجليزية 1", nameFr: "Anglais 1", nameEn: "English 1", coef: 2 },
-                    { id: "info1", nameAr: "إعلام آلي 1", nameFr: "Informatique 1", nameEn: "Computer Science 1", coef: 2 },
+                    { id: "math1", nameAr: "رياضيات 1", nameFr: "Mathématiques 1", nameEn: "Mathematics 1", coef: 4, hasTD: true },
+                    { id: "stat1", nameAr: "إحصاء 1", nameFr: "Statistiques 1", nameEn: "Statistics 1", coef: 3, hasTD: true },
+                    { id: "compta", nameAr: "محاسبة عامة", nameFr: "Comptabilité générale", nameEn: "General Accounting", coef: 3, hasTD: true },
+                    { id: "eco1", nameAr: "اقتصاد كلي", nameFr: "Macroéconomie", nameEn: "Macroeconomics", coef: 3, hasTD: false },
+                    { id: "droit", nameAr: "قانون", nameFr: "Droit", nameEn: "Law", coef: 2, hasTD: false },
+                    { id: "fr1", nameAr: "فرنسية 1", nameFr: "Français 1", nameEn: "French 1", coef: 2, hasTD: true },
+                    { id: "en1", nameAr: "إنجليزية 1", nameFr: "Anglais 1", nameEn: "English 1", coef: 2, hasTD: true },
+                    { id: "info1", nameAr: "إعلام آلي 1", nameFr: "Informatique 1", nameEn: "CS 1", coef: 2, hasTD: true },
                 ],
             },
             {
                 id: "y2", nameAr: "السنة الثانية تحضيري", nameFr: "2ème année prépa", nameEn: "2nd Preparatory Year",
                 subjects: [
-                    { id: "math2", nameAr: "رياضيات 2", nameFr: "Mathématiques 2", nameEn: "Mathematics 2", coef: 4 },
-                    { id: "stat2", nameAr: "إحصاء 2", nameFr: "Statistiques 2", nameEn: "Statistics 2", coef: 3 },
-                    { id: "compta2", nameAr: "محاسبة تحليلية", nameFr: "Comptabilité analytique", nameEn: "Cost Accounting", coef: 3 },
-                    { id: "eco2", nameAr: "اقتصاد جزئي", nameFr: "Microéconomie", nameEn: "Microeconomics", coef: 3 },
-                    { id: "mgmt", nameAr: "مبادئ التسيير", nameFr: "Principes de management", nameEn: "Management Principles", coef: 3 },
-                    { id: "fr2", nameAr: "لغة فرنسية 2", nameFr: "Français 2", nameEn: "French 2", coef: 2 },
-                    { id: "en2", nameAr: "لغة إنجليزية 2", nameFr: "Anglais 2", nameEn: "English 2", coef: 2 },
-                    { id: "info2", nameAr: "إعلام آلي 2", nameFr: "Informatique 2", nameEn: "Computer Science 2", coef: 2 },
+                    { id: "math2", nameAr: "رياضيات 2", nameFr: "Mathématiques 2", nameEn: "Mathematics 2", coef: 4, hasTD: true },
+                    { id: "stat2", nameAr: "إحصاء 2", nameFr: "Statistiques 2", nameEn: "Statistics 2", coef: 3, hasTD: true },
+                    { id: "compta2", nameAr: "محاسبة تحليلية", nameFr: "Comptabilité analytique", nameEn: "Cost Accounting", coef: 3, hasTD: true },
+                    { id: "eco2", nameAr: "اقتصاد جزئي", nameFr: "Microéconomie", nameEn: "Microeconomics", coef: 3, hasTD: false },
+                    { id: "mgmt", nameAr: "تسيير", nameFr: "Management", nameEn: "Management", coef: 3, hasTD: false },
+                    { id: "fr2", nameAr: "فرنسية 2", nameFr: "Français 2", nameEn: "French 2", coef: 2, hasTD: true },
+                    { id: "en2", nameAr: "إنجليزية 2", nameFr: "Anglais 2", nameEn: "English 2", coef: 2, hasTD: true },
+                    { id: "info2", nameAr: "إعلام آلي 2", nameFr: "Informatique 2", nameEn: "CS 2", coef: 2, hasTD: true },
+                ],
+            },
+            {
+                id: "y3", nameAr: "السنة الثالثة", nameFr: "3ème Année", nameEn: "3rd Year",
+                subjects: [
+                    { id: "finance", nameAr: "مالية مؤسسة", nameFr: "Finance d'entreprise", nameEn: "Corporate Finance", coef: 4, hasTD: true },
+                    { id: "marketing", nameAr: "تسويق", nameFr: "Marketing", nameEn: "Marketing", coef: 4, hasTD: true },
+                    { id: "gestion", nameAr: "تسيير", nameFr: "Gestion", nameEn: "Management", coef: 3, hasTD: false },
+                    { id: "compta3", nameAr: "محاسبة 3", nameFr: "Comptabilité 3", nameEn: "Accounting 3", coef: 3, hasTD: true },
+                    { id: "droit2", nameAr: "قانون أعمال", nameFr: "Droit des affaires", nameEn: "Business Law", coef: 3, hasTD: false },
+                    { id: "en3", nameAr: "إنجليزية أعمال", nameFr: "Anglais des affaires", nameEn: "Business English", coef: 2, hasTD: false },
                 ],
             },
         ],
     },
     {
-        id: "ehec", nameAr: "مدرسة الدراسات العليا التجارية", nameFr: "École des Hautes Études Commerciales", nameEn: "School of Higher Commercial Studies", acronym: "EHEC", color: "#10b981",
+        id: "ehec",
+        nameAr: "مدرسة الدراسات العليا التجارية",
+        nameFr: "École des Hautes Études Commerciales",
+        nameEn: "School of Higher Commercial Studies",
+        acronym: "EHEC",
+        color: "#10b981",
         years: [
             {
-                id: "y1", nameAr: "السنة الأولى تحضيري", nameFr: "1ère année prépa", nameEn: "1st Preparatory Year",
+                id: "y1", nameAr: "السنة الأولى", nameFr: "1ère Année", nameEn: "1st Year",
                 subjects: [
-                    { id: "math1", nameAr: "رياضيات", nameFr: "Mathématiques", nameEn: "Mathematics", coef: 5 },
-                    { id: "eco", nameAr: "اقتصاد", nameFr: "Économie", nameEn: "Economics", coef: 4 },
-                    { id: "compta", nameAr: "محاسبة", nameFr: "Comptabilité", nameEn: "Accounting", coef: 4 },
-                    { id: "droit", nameAr: "قانون", nameFr: "Droit", nameEn: "Law", coef: 3 },
-                    { id: "fr", nameAr: "فرنسية", nameFr: "Français", nameEn: "French", coef: 2 },
-                    { id: "en", nameAr: "إنجليزية", nameFr: "Anglais", nameEn: "English", coef: 2 },
+                    { id: "math1", nameAr: "رياضيات", nameFr: "Mathématiques", nameEn: "Mathematics", coef: 5, hasTD: true },
+                    { id: "eco", nameAr: "اقتصاد", nameFr: "Économie", nameEn: "Economics", coef: 4, hasTD: true },
+                    { id: "compta", nameAr: "محاسبة", nameFr: "Comptabilité", nameEn: "Accounting", coef: 4, hasTD: true },
+                    { id: "droit", nameAr: "قانون", nameFr: "Droit", nameEn: "Law", coef: 3, hasTD: false },
+                    { id: "fr", nameAr: "فرنسية", nameFr: "Français", nameEn: "French", coef: 2, hasTD: true },
+                    { id: "en", nameAr: "إنجليزية", nameFr: "Anglais", nameEn: "English", coef: 2, hasTD: true },
                 ],
             },
             {
-                id: "y2", nameAr: "السنة الثانية تحضيري", nameFr: "2ème année prépa", nameEn: "2nd Preparatory Year",
+                id: "y2", nameAr: "السنة الثانية", nameFr: "2ème Année", nameEn: "2nd Year",
                 subjects: [
-                    { id: "math2", nameAr: "رياضيات متقدمة", nameFr: "Mathématiques avancées", nameEn: "Advanced Mathematics", coef: 5 },
-                    { id: "eco2", nameAr: "نظرية اقتصادية", nameFr: "Théorie économique", nameEn: "Economic Theory", coef: 4 },
-                    { id: "fin", nameAr: "مالية", nameFr: "Finance", nameEn: "Finance", coef: 4 },
-                    { id: "mkting", nameAr: "تسويق", nameFr: "Marketing", nameEn: "Marketing", coef: 3 },
-                    { id: "fr2", nameAr: "فرنسية 2", nameFr: "Français 2", nameEn: "French 2", coef: 2 },
-                    { id: "en2", nameAr: "إنجليزية 2", nameFr: "Anglais 2", nameEn: "English 2", coef: 2 },
+                    { id: "math2", nameAr: "رياضيات 2", nameFr: "Mathématiques 2", nameEn: "Mathematics 2", coef: 5, hasTD: true },
+                    { id: "eco2", nameAr: "نظرية اقتصادية", nameFr: "Théorie économique", nameEn: "Economic Theory", coef: 4, hasTD: true },
+                    { id: "fin", nameAr: "مالية", nameFr: "Finance", nameEn: "Finance", coef: 4, hasTD: true },
+                    { id: "mkting", nameAr: "تسويق", nameFr: "Marketing", nameEn: "Marketing", coef: 3, hasTD: false },
+                    { id: "fr2", nameAr: "فرنسية 2", nameFr: "Français 2", nameEn: "French 2", coef: 2, hasTD: true },
+                    { id: "en2", nameAr: "إنجليزية 2", nameFr: "Anglais 2", nameEn: "English 2", coef: 2, hasTD: true },
+                ],
+            },
+            {
+                id: "y3", nameAr: "السنة الثالثة", nameFr: "3ème Année", nameEn: "3rd Year",
+                subjects: [
+                    { id: "strat", nameAr: "استراتيجية", nameFr: "Stratégie d'entreprise", nameEn: "Business Strategy", coef: 5, hasTD: false },
+                    { id: "fin2", nameAr: "مالية دولية", nameFr: "Finance internationale", nameEn: "International Finance", coef: 4, hasTD: true },
+                    { id: "audit", nameAr: "مراجعة حسابات", nameFr: "Audit", nameEn: "Audit", coef: 4, hasTD: true },
+                    { id: "mkting2", nameAr: "تسويق استراتيجي", nameFr: "Marketing stratégique", nameEn: "Strategic Marketing", coef: 3, hasTD: false },
+                    { id: "en3", nameAr: "إنجليزية 3", nameFr: "Anglais 3", nameEn: "English 3", coef: 2, hasTD: false },
                 ],
             },
         ],
     },
     {
-        id: "esgen", nameAr: "المدرسة العليا للتسيير والاقتصاد الرقمي", nameFr: "École Supérieure de Gestion et Économie Numérique", nameEn: "Higher School of Management & Digital Economy", acronym: "ESGEN", color: "#f59e0b",
+        id: "esgen",
+        nameAr: "المدرسة العليا للتسيير والاقتصاد الرقمي",
+        nameFr: "École Supérieure de Gestion et Économie Numérique",
+        nameEn: "Higher School of Management & Digital Economy",
+        acronym: "ESGEN",
+        color: "#f59e0b",
         years: [
             {
-                id: "y1", nameAr: "السنة الأولى", nameFr: "1ère année", nameEn: "1st Year",
+                id: "y1", nameAr: "السنة الأولى", nameFr: "1ère Année", nameEn: "1st Year",
                 subjects: [
-                    { id: "algo", nameAr: "خوارزميات وبرمجة", nameFr: "Algorithmique & Prog.", nameEn: "Algorithms & Programming", coef: 5 },
-                    { id: "math", nameAr: "رياضيات", nameFr: "Mathématiques", nameEn: "Mathematics", coef: 4 },
-                    { id: "sysinfo", nameAr: "نظم المعلومات", nameFr: "Systèmes d'information", nameEn: "Information Systems", coef: 3 },
-                    { id: "eco", nameAr: "اقتصاد رقمي", nameFr: "Économie numérique", nameEn: "Digital Economy", coef: 3 },
-                    { id: "en", nameAr: "إنجليزية", nameFr: "Anglais", nameEn: "English", coef: 2 },
+                    { id: "algo", nameAr: "خوارزميات وبرمجة", nameFr: "Algorithmique & Programmation", nameEn: "Algorithms & Programming", coef: 5, hasTD: true },
+                    { id: "math", nameAr: "رياضيات", nameFr: "Mathématiques", nameEn: "Mathematics", coef: 4, hasTD: true },
+                    { id: "sysinfo", nameAr: "نظم المعلومات", nameFr: "Systèmes d'information", nameEn: "Information Systems", coef: 3, hasTD: true },
+                    { id: "eco", nameAr: "اقتصاد رقمي", nameFr: "Économie numérique", nameEn: "Digital Economy", coef: 3, hasTD: false },
+                    { id: "en", nameAr: "إنجليزية", nameFr: "Anglais", nameEn: "English", coef: 2, hasTD: true },
                 ],
             },
             {
-                id: "y2", nameAr: "السنة الثانية", nameFr: "2ème année", nameEn: "2nd Year",
+                id: "y2", nameAr: "السنة الثانية", nameFr: "2ème Année", nameEn: "2nd Year",
                 subjects: [
-                    { id: "bd", nameAr: "قواعد البيانات", nameFr: "Bases de données", nameEn: "Databases", coef: 5 },
-                    { id: "reseaux", nameAr: "شبكات", nameFr: "Réseaux", nameEn: "Networks", coef: 4 },
-                    { id: "webdev", nameAr: "تطوير ويب", nameFr: "Développement web", nameEn: "Web Development", coef: 4 },
-                    { id: "mgmt", nameAr: "تسيير رقمي", nameFr: "Management numérique", nameEn: "Digital Management", coef: 3 },
-                    { id: "en2", nameAr: "إنجليزية 2", nameFr: "Anglais tech.", nameEn: "Technical English", coef: 2 },
+                    { id: "bd", nameAr: "قواعد البيانات", nameFr: "Bases de données", nameEn: "Databases", coef: 5, hasTD: true },
+                    { id: "reseaux", nameAr: "شبكات", nameFr: "Réseaux informatiques", nameEn: "Networks", coef: 4, hasTD: true },
+                    { id: "webdev", nameAr: "تطوير ويب", nameFr: "Développement web", nameEn: "Web Development", coef: 4, hasTD: true },
+                    { id: "mgmt", nameAr: "تسيير رقمي", nameFr: "Management numérique", nameEn: "Digital Management", coef: 3, hasTD: false },
+                    { id: "en2", nameAr: "إنجليزية 2", nameFr: "Anglais tech.", nameEn: "Technical English", coef: 2, hasTD: true },
+                ],
+            },
+            {
+                id: "y3", nameAr: "السنة الثالثة", nameFr: "3ème Année", nameEn: "3rd Year",
+                subjects: [
+                    { id: "ai", nameAr: "ذكاء اصطناعي", nameFr: "Intelligence artificielle", nameEn: "Artificial Intelligence", coef: 5, hasTD: true },
+                    { id: "cloud", nameAr: "حوسبة سحابية", nameFr: "Cloud Computing", nameEn: "Cloud Computing", coef: 4, hasTD: true },
+                    { id: "erp", nameAr: "نظم تخطيط الموارد", nameFr: "ERP & SI de gestion", nameEn: "ERP Systems", coef: 4, hasTD: true },
+                    { id: "mgmt2", nameAr: "إدارة المشاريع", nameFr: "Gestion de projets", nameEn: "Project Management", coef: 3, hasTD: false },
+                    { id: "en3", nameAr: "إنجليزية 3", nameFr: "Anglais 3", nameEn: "English 3", coef: 2, hasTD: false },
                 ],
             },
         ],
     },
     {
-        id: "enssea", nameAr: "المدرسة الوطنية العليا للإحصاء والاقتصاد التطبيقي", nameFr: "École Nationale Supérieure de Statistique et d'Économie Appliquée", nameEn: "National Higher School of Statistics & Applied Economics", acronym: "ENSSEA", color: "#8b5cf6",
-        years: [
-            {
-                id: "y1", nameAr: "السنة الأولى", nameFr: "1ère année", nameEn: "1st Year",
-                subjects: [
-                    { id: "proba", nameAr: "احتمالات وإحصاء", nameFr: "Probabilités & Stat.", nameEn: "Probability & Statistics", coef: 5 },
-                    { id: "analyse", nameAr: "تحليل رياضي", nameFr: "Analyse mathématique", nameEn: "Mathematical Analysis", coef: 4 },
-                    { id: "algebra", nameAr: "جبر خطي", nameFr: "Algèbre linéaire", nameEn: "Linear Algebra", coef: 4 },
-                    { id: "info", nameAr: "إعلام آلي", nameFr: "Informatique stat.", nameEn: "Statistical Computing", coef: 3 },
-                    { id: "eco", nameAr: "اقتصاد تطبيقي", nameFr: "Économie appliquée", nameEn: "Applied Economics", coef: 3 },
-                    { id: "en", nameAr: "إنجليزية", nameFr: "Anglais", nameEn: "English", coef: 2 },
-                ],
-            },
-            {
-                id: "y2", nameAr: "السنة الثانية", nameFr: "2ème année", nameEn: "2nd Year",
-                subjects: [
-                    { id: "stat2", nameAr: "إحصاء متقدم", nameFr: "Statistiques avancées", nameEn: "Advanced Statistics", coef: 5 },
-                    { id: "econometrie", nameAr: "قياس اقتصادي", nameFr: "Économétrie", nameEn: "Econometrics", coef: 5 },
-                    { id: "sondage", nameAr: "نظرية المسح", nameFr: "Théorie des sondages", nameEn: "Survey Theory", coef: 4 },
-                    { id: "demographie", nameAr: "ديموغرافيا", nameFr: "Démographie", nameEn: "Demography", coef: 3 },
-                    { id: "en2", nameAr: "إنجليزية تقنية", nameFr: "Anglais technique", nameEn: "Technical English", coef: 2 },
-                ],
-            },
-        ],
+        id: "other",
+        nameAr: "مدرسة أخرى",
+        nameFr: "Autre école",
+        nameEn: "Other School",
+        acronym: "Autre",
+        color: "#6366f1",
+        years: [],
     },
-    { id: "other", nameAr: "مدرسة أخرى", nameFr: "Autre école", nameEn: "Other School", acronym: "OTHER", color: "#6366f1", years: [] },
 ];
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────
 
 const i18n = {
     ar: {
-        chooseSchool: "اختر المدرسة", chooseYear: "اختر السنة", subject: "المقياس", coef: "المعامل",
-        note20: "نقطة /20", td8exam12: "TD /8 + امتحان /12", td20exam20: "TD /20 + امتحان /20",
-        note: "النقطة /20", td: "TD", exam: "امتحان",
-        subjectAvg: "معدل المقياس", overall: "المعدل الإجمالي", totalCoef: "مجموع المعاملات",
-        mention: "الملاحظة", reset: "إعادة تعيين", addSubject: "إضافة مقياس", subjectName: "اسم المقياس",
+        chooseSchool: "اختر المدرسة", chooseYear: "اختر السنة",
+        exam: "امتحان /20", td: "TD /20",
+        subjectAvg: "معدل", overall: "المعدل الإجمالي",
+        totalCoef: "مجموع المعاملات", mention: "الملاحظة",
+        reset: "إعادة تعيين", addExtra: "+ إضافة مقياس",
+        addSubject: "+ إضافة مادة", customSchoolHint: "أضف موادك يدوياً",
+        hasTD: "امتحان + TD", noTD: "امتحان فقط", gradeMode: "نظام التنقيط", td8Exam12: "TD /8 + امتحان /12", full20: "العلامة /20",
+        coef: "م", name: "اسم المادة",
         mentions: { excellent: "ممتاز", veryGood: "جيد جداً", good: "جيد", passable: "مقبول", fail: "راسب" },
-        addExtra: "إضافة مقياس إضافي", customSchoolHint: "أضف موادك الخاصة بحرية", deleteSubject: "حذف",
-        inputMode: "طريقة الإدخال",
     },
     fr: {
-        chooseSchool: "Choisir l'école", chooseYear: "Choisir l'année", subject: "Matière", coef: "Coef.",
-        note20: "Note /20", td8exam12: "TD /8 + Examen /12", td20exam20: "TD /20 + Examen /20",
-        note: "Note /20", td: "TD", exam: "Examen",
-        subjectAvg: "Moy. matière", overall: "Moyenne générale", totalCoef: "Total coefficients",
-        mention: "Mention", reset: "Réinitialiser", addSubject: "Ajouter une matière", subjectName: "Nom de la matière",
-        mentions: { excellent: "Excellent", veryGood: "Très bien", good: "Bien", passable: "Passable", fail: "Échec" },
-        addExtra: "Ajouter une matière supplémentaire", customSchoolHint: "Ajoutez librement vos matières", deleteSubject: "Supprimer",
-        inputMode: "Mode de saisie",
+        chooseSchool: "Choisir l'école", chooseYear: "Choisir l'année",
+        exam: "Examen /20", td: "TD /20",
+        subjectAvg: "Moy.", overall: "Moyenne générale",
+        totalCoef: "Total coefficients", mention: "Mention",
+        reset: "Réinitialiser", addExtra: "+ Ajouter une matière",
+        addSubject: "+ Ajouter une matière", customSchoolHint: "Ajoutez vos matières manuellement",
+        hasTD: "Examen + TD", noTD: "Examen seul", gradeMode: "Mode de notation", td8Exam12: "TD /8 + Examen /12", full20: "Note /20",
+        coef: "Coef.", name: "Nom de la matière",
+        mentions: { excellent: "Excellent", veryGood: "Très Bien", good: "Bien", passable: "Passable", fail: "Échec" },
     },
     en: {
-        chooseSchool: "Choose school", chooseYear: "Choose year", subject: "Subject", coef: "Coef.",
-        note20: "Grade /20", td8exam12: "TD /8 + Exam /12", td20exam20: "TD /20 + Exam /20",
-        note: "Grade /20", td: "TD", exam: "Exam",
-        subjectAvg: "Subject avg.", overall: "Overall average", totalCoef: "Total coefficients",
-        mention: "Mention", reset: "Reset", addSubject: "Add subject", subjectName: "Subject name",
+        chooseSchool: "Choose school", chooseYear: "Choose year",
+        exam: "Exam /20", td: "TD /20",
+        subjectAvg: "Avg.", overall: "Overall average",
+        totalCoef: "Total coefficients", mention: "Mention",
+        reset: "Reset", addExtra: "+ Add subject",
+        addSubject: "+ Add subject", customSchoolHint: "Add your subjects manually",
+        hasTD: "Exam + Tutorial", noTD: "Exam only", gradeMode: "Grading mode", td8Exam12: "TD /8 + Exam /12", full20: "Full mark /20",
+        coef: "Coef.", name: "Subject name",
         mentions: { excellent: "Excellent", veryGood: "Very Good", good: "Good", passable: "Passable", fail: "Fail" },
-        addExtra: "Add extra subject", customSchoolHint: "Freely add your own subjects", deleteSubject: "Delete",
-        inputMode: "Input mode",
     },
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function getMention(avg: number, t: typeof i18n.ar) {
-    if (avg >= 16) return { label: t.mentions.excellent, color: "#10b981" };
-    if (avg >= 14) return { label: t.mentions.veryGood, color: "#3b82f6" };
-    if (avg >= 12) return { label: t.mentions.good, color: "#f59e0b" };
-    if (avg >= 10) return { label: t.mentions.passable, color: "#f97316" };
-    return { label: t.mentions.fail, color: "#ef4444" };
+    if (avg >= 16) return { label: t.mentions.excellent, color: "hsl(var(--success))" };
+    if (avg >= 14) return { label: t.mentions.veryGood, color: "hsl(var(--primary))" };
+    if (avg >= 12) return { label: t.mentions.good, color: "hsl(var(--muted-foreground))" };
+    if (avg >= 10) return { label: t.mentions.passable, color: "hsl(var(--warning))" };
+    return { label: t.mentions.fail, color: "hsl(var(--destructive))" };
 }
 
-function defaultGradeEntry(mode: GradeMode): GradeEntry {
-    return { mode, note: "", td: "", exam: "" };
-}
+function calcAvg(entry: GradeEntry, hasTD: boolean): number | null {
+    const exam = parseFloat(entry.exam);
+    if (isNaN(exam) || exam < 0 || exam > 20) return null;
 
-function calcAvgFromEntry(g: GradeEntry): number | null {
-    if (g.mode === "note20") {
-        const n = parseFloat(g.note);
-        if (isNaN(n) || n < 0 || n > 20) return null;
-        return n;
-    }
-    if (g.mode === "td8exam12") {
-        const td = parseFloat(g.td);
-        const exam = parseFloat(g.exam);
+    if (!hasTD) return exam;
+
+    if (entry.mode === "td8exam12") {
+        const td = parseFloat(entry.td);
         if (isNaN(td) || td < 0 || td > 8) return null;
         if (isNaN(exam) || exam < 0 || exam > 12) return null;
-        return td + exam; // already out of 20
+        return td + exam;
     }
-    if (g.mode === "td20exam20") {
-        const td = parseFloat(g.td);
-        const exam = parseFloat(g.exam);
-        if (isNaN(td) || td < 0 || td > 20) return null;
-        if (isNaN(exam) || exam < 0 || exam > 20) return null;
-        return (td * 0.4) + (exam * 0.6); // 40% TD + 60% Exam
-    }
-    return null;
+
+    // full20: TD is /20 and exam is /20, weighted 40% / 60%.
+    const td = parseFloat(entry.td);
+    if (isNaN(td) || td < 0 || td > 20) return null;
+    if (isNaN(exam) || exam < 0 || exam > 20) return null;
+    return td * 0.4 + exam * 0.6;
 }
 
-let customIdCounter = 1;
+let customId = 1;
 function newCustomSubject(): Subject {
-    return { id: `custom_${customIdCounter++}`, nameAr: "", nameFr: "", nameEn: "", coef: 3, isCustom: true };
+    return { id: `custom_${customId++}`, nameAr: "", nameFr: "", nameEn: "", coef: 2, hasTD: true, isCustom: true };
 }
 
-// ─── Mode Switcher ─────────────────────────────────────────────────────────────
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
-function ModeSwitcher({ mode, onChange, t }: { mode: GradeMode; onChange: (m: GradeMode) => void; t: typeof i18n.ar }) {
-    const modes: { value: GradeMode; label: string }[] = [
-        { value: "note20", label: t.note20 },
-        { value: "td8exam12", label: t.td8exam12 },
-        { value: "td20exam20", label: t.td20exam20 },
-    ];
+function GradeInputs({ entry, onChange, hasTD, t, color }: {
+    entry: GradeEntry; onChange: (patch: Partial<GradeEntry>) => void;
+    hasTD: boolean; t: typeof i18n.ar; color: string;
+}) {
+    const isTD8Exam12 = entry.mode === "td8exam12";
+
     return (
-        <div className="flex flex-wrap gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
-            {modes.map((m) => (
-                <button
-                    key={m.value}
-                    onClick={() => onChange(m.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${mode === m.value ? "bg-[#00b7ff] text-black shadow-sm" : "text-white/40 hover:text-white"}`}
-                >
-                    {m.label}
-                </button>
-            ))}
-        </div>
-    );
-}
-
-// ─── Grade Inputs ──────────────────────────────────────────────────────────────
-
-function GradeInputs({ g, onChange, t, color }: { g: GradeEntry; onChange: (patch: Partial<GradeEntry>) => void; t: typeof i18n.ar; color: string }) {
-    if (g.mode === "note20") {
-        return (
-            <div>
-                <label className="block text-xs text-white/40 mb-1.5">{t.note}</label>
-                <input type="number" min={0} max={20} step={0.25} value={g.note}
-                    onChange={(e) => onChange({ note: e.target.value })} placeholder="—"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-                    style={{ borderColor: g.note ? color + "50" : undefined }}
-                />
-            </div>
-        );
-    }
-    if (g.mode === "td8exam12") {
-        return (
-            <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
+            {hasTD && (
                 <div>
-                    <label className="block text-xs text-white/40 mb-1.5">{t.td} /8</label>
-                    <input type="number" min={0} max={8} step={0.25} value={g.td}
-                        onChange={(e) => onChange({ td: e.target.value })} placeholder="—"
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-                    />
-                </div>
-                <div>
-                    <label className="block text-xs text-white/40 mb-1.5">{t.exam} /12</label>
-                    <input type="number" min={0} max={12} step={0.25} value={g.exam}
-                        onChange={(e) => onChange({ exam: e.target.value })} placeholder="—"
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-                    />
-                </div>
-            </div>
-        );
-    }
-    // td20exam20
-    return (
-        <div className="grid grid-cols-2 gap-3">
-            <div>
-                <label className="block text-xs text-white/40 mb-1.5">{t.td} /20 <span className="text-white/20">(40%)</span></label>
-                <input type="number" min={0} max={20} step={0.25} value={g.td}
-                    onChange={(e) => onChange({ td: e.target.value })} placeholder="—"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-                />
-            </div>
-            <div>
-                <label className="block text-xs text-white/40 mb-1.5">{t.exam} /20 <span className="text-white/20">(60%)</span></label>
-                <input type="number" min={0} max={20} step={0.25} value={g.exam}
-                    onChange={(e) => onChange({ exam: e.target.value })} placeholder="—"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-                />
-            </div>
-        </div>
-    );
-}
-
-// ─── Custom Subject Row ────────────────────────────────────────────────────────
-
-function CustomSubjectRow({ subject, lang, t, schoolColor, grade, onUpdate, onDelete, onGradeChange, isExpanded, onToggle }:
-    { subject: Subject; lang: "ar" | "fr" | "en"; t: typeof i18n.ar; schoolColor: string; grade: GradeEntry; onUpdate: (patch: Partial<Subject>) => void; onDelete: () => void; onGradeChange: (patch: Partial<GradeEntry>) => void; isExpanded: boolean; onToggle: () => void; }) {
-    const name = subject.nameEn || subject.nameFr || subject.nameAr;
-    const avg = calcAvgFromEntry(grade);
-
-    return (
-        <div className={`rounded-xl border transition-all duration-200 overflow-hidden ${isExpanded ? "border-[#6366f1]/30 bg-[#6366f1]/5" : "border-white/8 bg-white/[0.02] hover:border-white/15"}`}>
-            <button className="w-full flex items-center justify-between px-4 py-3 gap-3" onClick={onToggle}>
-                <div className="flex items-center gap-3 min-w-0">
-                    <span className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: schoolColor + "22", color: schoolColor }}>{subject.coef}</span>
-                    <p className="text-sm font-medium text-white/90 truncate">{name || <span className="text-white/20 italic">{t.subjectName}…</span>}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                    {avg !== null && <span className="text-sm font-bold tabular-nums" style={{ color: getMention(avg, t).color }}>{avg.toFixed(2)}</span>}
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-1 rounded-lg hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                    {isExpanded ? <ChevronUp className="w-4 h-4 text-white/30" /> : <ChevronDown className="w-4 h-4 text-white/30" />}
-                </div>
-            </button>
-            {isExpanded && (
-                <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-                    <div>
-                        <label className="block text-xs text-white/40 mb-1.5">{t.subjectName}</label>
-                        <input type="text" value={subject.nameEn}
-                            onChange={(e) => onUpdate({ nameEn: e.target.value, nameFr: e.target.value, nameAr: e.target.value })}
-                            placeholder={t.subjectName}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#6366f1]/50"
-                        />
+                    <label className="block text-xs text-muted-foreground mb-1.5">{t.gradeMode}</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => onChange({ mode: "td8exam12" })}
+                            className={`px-3 py-2 rounded-md border text-xs font-medium transition-colors ${isTD8Exam12
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                }`}
+                        >
+                            {t.td8Exam12}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onChange({ mode: "full20" })}
+                            className={`px-3 py-2 rounded-md border text-xs font-medium transition-colors ${!isTD8Exam12
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                }`}
+                        >
+                            {t.full20}
+                        </button>
                     </div>
-                    <div>
-                        <label className="block text-xs text-white/40 mb-1.5">{t.coef}</label>
-                        <input type="number" min={1} max={10} value={subject.coef}
-                            onChange={(e) => onUpdate({ coef: parseInt(e.target.value) || 1 })}
-                            className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]/50 text-center"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs text-white/40 mb-1.5">{t.inputMode}</label>
-                        <ModeSwitcher mode={grade.mode} onChange={(m) => onGradeChange({ mode: m, note: "", td: "", exam: "" })} t={t} />
-                    </div>
-                    <GradeInputs g={grade} onChange={onGradeChange} t={t} color={schoolColor} />
                 </div>
             )}
+
+            <div className={`grid gap-3 ${hasTD ? "grid-cols-2" : "grid-cols-1 max-w-[160px]"}`}>
+                <div>
+                    <label className="block text-xs text-muted-foreground mb-1">
+                        {hasTD && isTD8Exam12 ? t.exam.replace("/20", "/12") : t.exam}
+                    </label>
+                    <input
+                        type="number"
+                        min={0}
+                        max={hasTD && isTD8Exam12 ? 12 : 20}
+                        step={0.25}
+                        value={entry.exam}
+                        onChange={(e) => onChange({ exam: e.target.value })}
+                        placeholder="—"
+                        className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors"
+                        style={{ borderColor: entry.exam ? color + "50" : undefined }}
+                    />
+                </div>
+
+                {hasTD && (
+                    <div>
+                        <label className="block text-xs text-muted-foreground mb-1">
+                            {isTD8Exam12 ? t.td.replace("/20", "/8") : t.td}
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={isTD8Exam12 ? 8 : 20}
+                            step={0.25}
+                            value={entry.td}
+                            onChange={(e) => onChange({ td: e.target.value })}
+                            placeholder="—"
+                            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors"
+                            style={{ borderColor: entry.td ? color + "50" : undefined }}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -366,39 +412,29 @@ export default function GrandesEcolesCalculator({ lang, isRTL }: { lang: "ar" | 
     const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
     const [extraSubjects, setExtraSubjects] = useState<Subject[]>([]);
     const [customSubjects, setCustomSubjects] = useState<Subject[]>([]);
-    const [globalMode, setGlobalMode] = useState<GradeMode>("note20");
 
     const school = SCHOOLS.find((s) => s.id === selectedSchool);
     const year = school?.years.find((y) => y.id === selectedYear);
     const isOther = selectedSchool === "other";
 
-    const getGrade = (id: string): GradeEntry => grades[id] ?? defaultGradeEntry(globalMode);
+    const getEntry = (id: string): GradeEntry => grades[id] ?? { exam: "", td: "", mode: "td8exam12" };
 
     const updateGrade = useCallback((subjectId: string, patch: Partial<GradeEntry>) => {
-        setGrades((prev) => ({ ...prev, [subjectId]: { ...defaultGradeEntry(globalMode), ...prev[subjectId], ...patch } }));
-    }, [globalMode]);
-
-    const handleGlobalModeChange = (mode: GradeMode) => {
-        setGlobalMode(mode);
-        setGrades({});
-    };
+        setGrades((prev) => ({ ...prev, [subjectId]: { ...{ exam: "", td: "", mode: "td8exam12" as GradeMode }, ...prev[subjectId], ...patch } }));
+    }, []);
 
     const reset = () => { setGrades({}); setExtraSubjects([]); setCustomSubjects([]); };
 
-    const addExtraSubject = () => setExtraSubjects((prev) => [...prev, newCustomSubject()]);
-    const addCustomSubject = () => setCustomSubjects((prev) => [...prev, newCustomSubject()]);
-    const updateExtraSubject = (id: string, patch: Partial<Subject>) => setExtraSubjects((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s));
-    const updateCustomSubject = (id: string, patch: Partial<Subject>) => setCustomSubjects((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s));
-    const removeExtraSubject = (id: string) => setExtraSubjects((prev) => prev.filter((s) => s.id !== id));
-    const removeCustomSubject = (id: string) => setCustomSubjects((prev) => prev.filter((s) => s.id !== id));
+    const updateCustomSubject = (list: Subject[], setList: (s: Subject[]) => void, id: string, patch: Partial<Subject>) =>
+        setList(list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
-    const presetSubjects: Subject[] = year?.subjects ?? [];
-    const allSubjects: Subject[] = isOther ? customSubjects : [...presetSubjects, ...extraSubjects];
+    const presetSubjects = year?.subjects ?? [];
+    const allSubjects = isOther ? customSubjects : [...presetSubjects, ...extraSubjects];
 
     let totalWeighted = 0, totalCoef = 0, filledCount = 0;
     const subjectResults = allSubjects.map((s) => {
-        const g = getGrade(s.id);
-        const avg = calcAvgFromEntry(g);
+        const entry = getEntry(s.id);
+        const avg = calcAvg(entry, !!s.hasTD);
         if (avg !== null) { totalWeighted += avg * s.coef; totalCoef += s.coef; filledCount++; }
         return { ...s, avg };
     });
@@ -412,15 +448,18 @@ export default function GrandesEcolesCalculator({ lang, isRTL }: { lang: "ar" | 
         <div className="space-y-5">
             {/* School selector */}
             <div>
-                <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">{t.chooseSchool}</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-2">{t.chooseSchool}</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {SCHOOLS.map((s) => (
                         <button key={s.id}
                             onClick={() => { setSelectedSchool(s.id); setSelectedYear(""); setGrades({}); setExtraSubjects([]); setCustomSubjects([]); }}
-                            className={`px-3 py-2.5 rounded-xl border text-sm font-bold transition-all duration-200 text-left ${selectedSchool === s.id ? "border-transparent text-black" : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/80 bg-white/[0.03]"}`}
-                            style={selectedSchool === s.id ? { background: s.color, boxShadow: `0 0 20px ${s.color}40` } : {}}>
-                            <span className="block text-xs opacity-70">{s.acronym}</span>
-                            <span className="block text-[11px] leading-tight opacity-90 mt-0.5">{lang === "ar" ? s.nameAr : lang === "fr" ? s.nameFr : s.nameEn}</span>
+                            className={`px-3 py-2.5 rounded-md border text-left transition-colors ${selectedSchool === s.id ? "text-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                            style={selectedSchool === s.id ? { background: s.color + "1a", borderColor: s.color + "80" } : {}}
+                        >
+                            <span className="block text-xs font-semibold" style={{ color: s.color }}>{s.acronym}</span>
+                            <span className="block text-[10px] leading-tight mt-0.5 text-muted-foreground">
+                                {lang === "ar" ? s.nameAr : lang === "fr" ? s.nameFr : s.nameEn}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -429,12 +468,14 @@ export default function GrandesEcolesCalculator({ lang, isRTL }: { lang: "ar" | 
             {/* Year selector */}
             {school && !isOther && (
                 <div>
-                    <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">{t.chooseYear}</label>
-                    <div className="flex flex-col gap-2">
+                    <label className="block text-xs font-medium text-muted-foreground mb-2">{t.chooseYear}</label>
+                    <div className="flex flex-wrap gap-2">
                         {school.years.map((y) => (
                             <button key={y.id}
                                 onClick={() => { setSelectedYear(y.id); setGrades({}); setExtraSubjects([]); }}
-                                className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-200 text-left ${selectedYear === y.id ? "border-transparent bg-[#00b7ff] text-black shadow-lg shadow-[#00b7ff]/20" : "border-white/10 text-white/50 hover:border-white/20 hover:text-white bg-white/[0.03]"}`}>
+                                className={`px-4 py-2 rounded-md border text-sm font-medium transition-colors ${selectedYear === y.id ? "text-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                                style={selectedYear === y.id ? { background: schoolColor + "1a", borderColor: schoolColor + "80" } : {}}
+                            >
                                 {lang === "ar" ? y.nameAr : lang === "fr" ? y.nameFr : y.nameEn}
                             </button>
                         ))}
@@ -442,104 +483,143 @@ export default function GrandesEcolesCalculator({ lang, isRTL }: { lang: "ar" | 
                 </div>
             )}
 
-            {isOther && <p className="text-sm text-white/30 italic">{t.customSchoolHint}</p>}
+            {isOther && <p className="text-sm text-muted-foreground italic">{t.customSchoolHint}</p>}
 
             {(isOther || year) && (
                 <>
-                    {/* Global mode switcher */}
-                    <div>
-                        <label className="block text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">{t.inputMode}</label>
-                        <ModeSwitcher mode={globalMode} onChange={handleGlobalModeChange} t={t} />
-                    </div>
-
+                    {/* Progress bar */}
                     {allSubjects.length > 0 && (
                         <div className="flex items-center gap-3">
-                            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-[#00b7ff] transition-all duration-500" style={{ width: `${progress}%` }} />
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: schoolColor }} />
                             </div>
-                            <span className="text-xs text-white/30 font-mono tabular-nums">{filledCount}/{allSubjects.length}</span>
+                            <span className="text-xs text-muted-foreground font-mono">{filledCount}/{allSubjects.length}</span>
                         </div>
                     )}
 
-                    {/* Preset subjects */}
-                    {!isOther && presetSubjects.length > 0 && (
-                        <div className="space-y-2">
-                            {subjectResults.filter(s => !s.isCustom).map((s) => {
-                                const g = getGrade(s.id);
-                                const isOpen = expandedSubject === s.id;
-                                return (
-                                    <div key={s.id} className={`rounded-xl border transition-all duration-200 overflow-hidden ${isOpen ? "border-[#00b7ff]/30 bg-[#00b7ff]/5" : "border-white/8 bg-white/[0.02] hover:border-white/15"}`}>
-                                        <button className="w-full flex items-center justify-between px-4 py-3 gap-3" onClick={() => setExpandedSubject(isOpen ? null : s.id)}>
+                    {/* Subjects */}
+                    <div className="space-y-2">
+                        {subjectResults.map((s) => {
+                            const entry = getEntry(s.id);
+                            const isOpen = expandedSubject === s.id;
+                            return (
+                                <div key={s.id} className={`rounded-lg border overflow-hidden transition-colors ${isOpen ? "bg-muted/30" : "border-border bg-card hover:bg-muted/30"}`}
+                                    style={{ borderColor: isOpen ? schoolColor + "50" : undefined }}>
+                                    <div
+                                        className="w-full"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => setExpandedSubject(isOpen ? null : s.id)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                setExpandedSubject(isOpen ? null : s.id);
+                                            }
+                                        }}
+                                    >
+                                        <div className="w-full flex items-center justify-between px-4 py-3 gap-3">
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <span className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: schoolColor + "22", color: schoolColor }}>{s.coef}</span>
-                                                <p className="text-sm font-medium text-white/90 truncate">{lang === "ar" ? s.nameAr : lang === "fr" ? s.nameFr : s.nameEn}</p>
+                                                <span className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-xs font-semibold"
+                                                    style={{ background: schoolColor + "22", color: schoolColor }}>{s.coef}</span>
+                                                <div className="min-w-0 text-left">
+                                                    {s.isCustom ? (
+                                                        <input
+                                                            value={lang === "ar" ? s.nameAr : lang === "fr" ? s.nameFr : s.nameEn}
+                                                            onChange={(e) => {
+                                                                const patch = lang === "ar" ? { nameAr: e.target.value } : lang === "fr" ? { nameFr: e.target.value } : { nameEn: e.target.value };
+                                                                if (isOther) updateCustomSubject(customSubjects, setCustomSubjects, s.id, patch);
+                                                                else updateCustomSubject(extraSubjects, setExtraSubjects, s.id, patch);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => e.stopPropagation()}
+                                                            placeholder={t.name}
+                                                            className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none border-b border-border w-full"
+                                                        />
+                                                    ) : (
+                                                        <p className="text-sm font-medium text-foreground truncate">
+                                                            {lang === "ar" ? s.nameAr : lang === "fr" ? s.nameFr : s.nameEn}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-[10px] text-muted-foreground">{s.hasTD ? t.hasTD : t.noTD}</p>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-3 shrink-0">
-                                                {s.avg !== null && <span className="text-sm font-bold tabular-nums" style={{ color: getMention(s.avg, t).color }}>{s.avg.toFixed(2)}</span>}
-                                                {isOpen ? <ChevronUp className="w-4 h-4 text-white/30" /> : <ChevronDown className="w-4 h-4 text-white/30" />}
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {s.avg !== null && (
+                                                    <span className="text-sm font-semibold tabular-nums" style={{ color: getMention(s.avg, t).color }}>
+                                                        {s.avg.toFixed(2)}
+                                                    </span>
+                                                )}
+                                                {s.isCustom && (
+                                                    <>
+                                                        <input type="number" min={1} max={10} value={s.coef}
+                                                            onChange={(e) => {
+                                                                const patch = { coef: parseInt(e.target.value) || 1 };
+                                                                if (isOther) updateCustomSubject(customSubjects, setCustomSubjects, s.id, patch);
+                                                                else updateCustomSubject(extraSubjects, setExtraSubjects, s.id, patch);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => e.stopPropagation()}
+                                                            className="w-10 rounded-md border border-input bg-transparent text-xs text-foreground text-center focus:outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (isOther) setCustomSubjects(p => p.filter(x => x.id !== s.id));
+                                                                else setExtraSubjects(p => p.filter(x => x.id !== s.id));
+                                                            }}
+                                                            className="text-muted-foreground hover:text-destructive transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                                             </div>
-                                        </button>
+                                        </div>
+
                                         {isOpen && (
-                                            <div className="px-4 pb-4 border-t border-white/5 pt-3">
-                                                <GradeInputs g={g} onChange={(patch) => updateGrade(s.id, patch)} t={t} color={schoolColor} />
+                                            <div
+                                                className="px-4 pb-4 border-t border-border pt-3"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                            >
+                                                <GradeInputs entry={entry} onChange={(p) => updateGrade(s.id, p)} hasTD={!!s.hasTD} t={t} color={schoolColor} />
                                             </div>
                                         )}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
 
-                    {/* Extra subjects */}
-                    {!isOther && extraSubjects.length > 0 && (
-                        <div className="space-y-2 pt-1">
-                            <p className="text-xs text-white/20 uppercase tracking-widest font-semibold px-1">{t.addExtra}</p>
-                            {extraSubjects.map((s) => (
-                                <CustomSubjectRow key={s.id} subject={s} lang={lang} t={t} schoolColor={schoolColor}
-                                    grade={getGrade(s.id)}
-                                    onUpdate={(patch) => updateExtraSubject(s.id, patch)}
-                                    onDelete={() => removeExtraSubject(s.id)}
-                                    onGradeChange={(patch) => updateGrade(s.id, patch)}
-                                    isExpanded={expandedSubject === s.id}
-                                    onToggle={() => setExpandedSubject(expandedSubject === s.id ? null : s.id)}
-                                />
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Custom subjects for "other" */}
-                    {isOther && customSubjects.length > 0 && (
-                        <div className="space-y-2">
-                            {customSubjects.map((s) => (
-                                <CustomSubjectRow key={s.id} subject={s} lang={lang} t={t} schoolColor={schoolColor}
-                                    grade={getGrade(s.id)}
-                                    onUpdate={(patch) => updateCustomSubject(s.id, patch)}
-                                    onDelete={() => removeCustomSubject(s.id)}
-                                    onGradeChange={(patch) => updateGrade(s.id, patch)}
-                                    isExpanded={expandedSubject === s.id}
-                                    onToggle={() => setExpandedSubject(expandedSubject === s.id ? null : s.id)}
-                                />
-                            ))}
-                        </div>
-                    )}
-
-                    <button onClick={isOther ? addCustomSubject : addExtraSubject}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-[#00b7ff]/30 text-[#00b7ff]/70 hover:text-[#00b7ff] hover:border-[#00b7ff]/60 hover:bg-[#00b7ff]/5 transition-all text-sm font-medium">
+                    {/* Add subject */}
+                    <button
+                        onClick={() => isOther ? setCustomSubjects(p => [...p, newCustomSubject()]) : setExtraSubjects(p => [...p, newCustomSubject()])}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md border border-dashed border-primary/30 text-primary/70 hover:text-primary hover:border-primary/60 hover:bg-primary/5 transition-colors text-sm font-medium"
+                    >
                         <Plus className="w-4 h-4" />
                         {isOther ? t.addSubject : t.addExtra}
                     </button>
 
+                    {/* Result */}
                     {allSubjects.length > 0 && (
-                        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 flex flex-wrap items-center justify-between gap-6">
+                        <div className="mt-4 rounded-lg border border-border bg-card p-6 flex flex-wrap items-center justify-between gap-6">
                             <div>
-                                <p className="text-xs text-white/30 uppercase tracking-widest font-semibold mb-1">{t.overall}</p>
-                                <p className="text-5xl font-black tabular-nums" style={{ color: mention?.color ?? "white" }}>{overall !== null ? overall.toFixed(2) : "—"}</p>
-                                <p className="text-sm mt-1 font-medium" style={{ color: mention?.color ?? "#ffffff50" }}>{mention?.label ?? ""}</p>
+                                <p className="text-xs font-medium text-muted-foreground mb-1">{t.overall}</p>
+                                <p className="font-display text-4xl font-semibold tracking-tight tabular-nums" style={{ color: mention?.color ?? "hsl(var(--foreground))" }}>
+                                    {overall !== null ? overall.toFixed(2) : "—"}
+                                </p>
+                                <p className="text-sm mt-1 font-medium" style={{ color: mention?.color ?? "hsl(var(--muted-foreground))" }}>
+                                    {mention?.label ?? ""}
+                                </p>
                             </div>
-                            <div className="text-right">
-                                <p className="text-xs text-white/30 uppercase tracking-widest font-semibold mb-1">{t.totalCoef}</p>
-                                <p className="text-2xl font-bold text-white/60">{totalCoef}</p>
-                                <button onClick={reset} className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-xs transition-all">
+                            <div className="text-right space-y-2">
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t.totalCoef}</p>
+                                    <p className="text-2xl font-semibold" style={{ color: schoolColor }}>{totalCoef}</p>
+                                </div>
+                                <button onClick={reset} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 text-xs font-medium transition-colors ml-auto">
                                     <RefreshCw className="w-3.5 h-3.5" />{t.reset}
                                 </button>
                             </div>

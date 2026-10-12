@@ -13,10 +13,10 @@ import { Plus, X, BookOpen, AlertTriangle, FileText, Bell, Loader2 } from "lucid
 import { format, isSameDay, parseISO } from "date-fns";
 
 const EVENT_TYPES: Record<StudyEventType, { labelKey: string; color: string; icon: React.ElementType }> = {
-  study: { labelKey: "Study Session", color: "#00b7ff", icon: BookOpen },
-  exam: { labelKey: "Exam", color: "#FF6B6B", icon: AlertTriangle },
-  assignment: { labelKey: "Assignment", color: "#FF9F43", icon: FileText },
-  reminder: { labelKey: "Reminder", color: "#4ECDC4", icon: Bell },
+  study: { labelKey: "Study Session", color: "primary", icon: BookOpen },
+  exam: { labelKey: "Exam", color: "destructive", icon: AlertTriangle },
+  assignment: { labelKey: "Assignment", color: "warning", icon: FileText },
+  reminder: { labelKey: "Reminder", color: "success", icon: Bell },
 };
 
 export default function CalendarPage() {
@@ -92,7 +92,7 @@ export default function CalendarPage() {
     return (
       <div className="flex justify-center gap-0.5 mt-1">
         {dayEvents.slice(0, 3).map((e, i) => (
-          <div key={i} className="w-1 h-1 rounded-full" style={{ background: EVENT_TYPES[e.event_type].color }} />
+          <div key={i} className="w-1 h-1 rounded-full" style={{ background: `hsl(var(--${EVENT_TYPES[e.event_type].color}))` }} />
         ))}
       </div>
     );
@@ -113,7 +113,7 @@ export default function CalendarPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-black text-2xl">{t("nav_calendar")}</h1>
+          <h1 className="font-display font-bold text-2xl">{t("nav_calendar")}</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {t("nav_calendar") === "التقويم"
               ? "جدول جلساتك، تتبع الامتحانات، والتزم بالمواعيد"
@@ -146,7 +146,7 @@ export default function CalendarPage() {
 
           {/* Add event form */}
           {showForm && (
-            <Card className="border-lime/30">
+            <Card className="border-muted/30">
               <CardContent className="p-5">
                 <form onSubmit={handleAddEvent} className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -167,7 +167,7 @@ export default function CalendarPage() {
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">{t("todos_priority") === "الأولوية" ? "النوع" : t("todos_priority") === "Priorité" ? "Type" : "Type"}</label>
                       <select value={eventType} onChange={(e) => setEventType(e.target.value as StudyEventType)}
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none">
+                        className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none">
                         {(Object.entries(EVENT_TYPES) as [StudyEventType, any][]).map(([k]) => (
                           <option key={k} value={k}>{eventTypeLabel(k)}</option>
                         ))}
@@ -176,7 +176,7 @@ export default function CalendarPage() {
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">{t("todos_subject")}</label>
                       <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none">
+                        className="w-full rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none">
                         <option value="">{t("todos_none")}</option>
                         {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
@@ -245,10 +245,10 @@ export default function CalendarPage() {
                     const typeConfig = EVENT_TYPES[event.event_type];
                     return (
                       <div key={event.id}
-                        className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 transition-colors group">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ background: `${typeConfig.color}20` }}>
-                          <typeConfig.icon className="w-4 h-4" style={{ color: typeConfig.color }} />
+                        className="flex items-start gap-3 p-3 rounded-md border border-border hover:bg-muted/50 transition-colors group">
+                        <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
+                          style={{ background: `hsl(var(--${typeConfig.color}) / 0.2)` }}>
+                          <typeConfig.icon className="w-4 h-4" style={{ color: `hsl(var(--${typeConfig.color}))` }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm">{event.title}</p>
@@ -290,7 +290,7 @@ export default function CalendarPage() {
                   const typeConfig = EVENT_TYPES[event.event_type];
                   return (
                     <div key={event.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                      <div className="w-1 self-stretch rounded-full" style={{ background: typeConfig.color }} />
+                      <div className="w-1 self-stretch rounded-full" style={{ background: `hsl(var(--${typeConfig.color}))` }} />
                       <div>
                         <p className="text-sm font-medium">{event.title}</p>
                         <p className="text-xs text-muted-foreground">

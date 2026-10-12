@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/providers/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { PRIORITY_CONFIG } from "@/types";
 import type { Todo, TodoPriority, Subject } from "@/types";
@@ -97,7 +98,7 @@ export default function TodosPage() {
       setTitle(""); setDescription(""); setPriority("medium");
       setDueDate(""); setSelectedSubject(""); setShowForm(false);
       await fetchTodos(userId);
-      toast({ title: "Task added!", description: "Get it done and earn XP 💪" });
+      toast({ title: "Task added!", description: "Get it done and earn XP " });
     }
     setSubmitting(false);
   };
@@ -110,7 +111,7 @@ export default function TodosPage() {
     }).eq("id", todo.id);
     if (completed) {
       await awardXP(userId, todo.xp_reward, `Completed task: ${todo.title}`, "todo", todo.id);
-      toast({ title: "Task complete! ✅", description: `+${todo.xp_reward} XP earned` });
+      toast({ title: "Task complete! ", description: `+${todo.xp_reward} XP earned` });
     }
     await fetchTodos(userId);
   };
@@ -140,10 +141,10 @@ export default function TodosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-black text-2xl">{t("todos_title")}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">{t("todos_title")}</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {stats.completed}/{stats.total} {t("todos_completed")} •{" "}
-            <span className="text-lime font-medium">{stats.pending} {t("todos_remaining")}</span>
+            <span className="text-muted-foreground font-medium">{stats.pending} {t("todos_remaining")}</span>
           </p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
@@ -154,15 +155,15 @@ export default function TodosPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: t("todos_total"), value: stats.total, color: "text-foreground" },
-          { label: t("todos_done"), value: stats.completed, color: "text-emerald-400" },
-          { label: t("todos_pending"), value: stats.pending, color: "text-yellow-400" },
-          { label: t("todos_urgent"), value: stats.urgent, color: "text-red-400" },
+          { label: t("todos_total"), value: stats.total },
+          { label: t("todos_done"), value: stats.completed },
+          { label: t("todos_pending"), value: stats.pending },
+          { label: t("todos_urgent"), value: stats.urgent },
         ].map((s) => (
-          <Card key={s.label} className="card-hover">
+          <Card key={s.label}>
             <CardContent className="p-4 text-center">
-              <p className={`font-display font-black text-2xl ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+              <p className="font-display text-2xl font-semibold tracking-tight">{s.value}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
             </CardContent>
           </Card>
         ))}
@@ -170,7 +171,7 @@ export default function TodosPage() {
 
       {/* Add task form */}
       {showForm && (
-        <Card className="border-lime/30">
+        <Card>
           <CardContent className="p-5">
             <form onSubmit={handleAddTodo} className="space-y-4">
               <div className="flex items-center justify-between mb-2">
@@ -199,7 +200,7 @@ export default function TodosPage() {
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground font-medium">{t("todos_priority")}</label>
                   <select value={priority} onChange={(e) => setPriority(e.target.value as TodoPriority)}
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime/50">
+                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50">
                     {(Object.keys(PRIORITY_CONFIG) as TodoPriority[]).map((key) => (
                       <option key={key} value={key}>{priorityLabels[key]}</option>
                     ))}
@@ -210,7 +211,7 @@ export default function TodosPage() {
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground font-medium">{t("todos_subject")}</label>
                   <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime/50">
+                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50">
                     <option value="">{t("todos_none")}</option>
                     {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -242,8 +243,8 @@ export default function TodosPage() {
         {(["all", "pending", "completed", "urgent", "high", "medium", "low"] as FilterType[]).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             className={cn(
-              "px-3 py-1 rounded-full text-xs font-semibold transition-all",
-              filter === f ? "bg-lime text-[#0D0D18]" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              filter === f ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
             )}>
             {filterLabels[f]}
           </button>
@@ -256,15 +257,12 @@ export default function TodosPage() {
           <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
         </div>
       ) : filteredTodos.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="font-semibold text-muted-foreground">{t("todos_no_tasks")}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {filter === "all" ? t("todos_add_first") : t("todos_no_filter")}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={CheckCircle2}
+          title={t("todos_no_tasks")}
+          description={filter === "all" ? t("todos_add_first") : t("todos_no_filter")}
+          className="py-16"
+        />
       ) : (
         <div className="space-y-2">
           {filteredTodos.map((todo) => {
@@ -274,16 +272,16 @@ export default function TodosPage() {
             return (
               <div key={todo.id}
                 className={cn(
-                  "flex items-start gap-3 p-4 rounded-2xl border transition-all duration-200 group",
+                  "group flex items-start gap-3 rounded-md border p-4 transition-colors",
                   todo.completed
                     ? "border-border bg-muted/30 opacity-60"
-                    : "border-border bg-card hover:border-lime/30 hover:bg-lime/2"
+                    : "border-border bg-card hover:bg-muted/30"
                 )}>
                 {/* Checkbox */}
-                <button onClick={() => toggleTodo(todo)} className="mt-0.5 shrink-0 transition-transform hover:scale-110">
+                <button onClick={() => toggleTodo(todo)} className="mt-0.5 shrink-0 transition-colors">
                   {todo.completed
-                    ? <CheckCircle2 className="w-5 h-5 text-lime" />
-                    : <Circle className="w-5 h-5 text-muted-foreground hover:text-lime transition-colors" />}
+                    ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                    : <Circle className="w-5 h-5 text-muted-foreground transition-colors hover:text-primary" />}
                 </button>
 
                 {/* Content */}
@@ -310,7 +308,7 @@ export default function TodosPage() {
 
                     {/* Due date */}
                     {todo.due_date && (
-                      <span className={cn("flex items-center gap-1 text-xs", isOverdue ? "text-red-400" : "text-muted-foreground")}>
+                      <span className={cn("flex items-center gap-1 text-xs", isOverdue ? "text-destructive" : "text-muted-foreground")}>
                         <Calendar className="w-3 h-3" />
                         {format(new Date(todo.due_date), "MMM d")}
                         {isOverdue && ` ${t("todos_overdue")}`}
@@ -319,7 +317,7 @@ export default function TodosPage() {
 
                     {/* XP reward */}
                     {!todo.completed && (
-                      <span className="flex items-center gap-1 text-xs text-lime ml-auto">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
                         <Star className="w-3 h-3" />+{todo.xp_reward} XP
                       </span>
                     )}
@@ -328,7 +326,7 @@ export default function TodosPage() {
 
                 {/* Delete */}
                 <button onClick={() => deleteTodo(todo.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive p-1 rounded-lg">
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive p-1 rounded-md">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

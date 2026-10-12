@@ -13,29 +13,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["var(--font-syne)", "sans-serif"],
-        body: ["var(--font-dm-sans)", "sans-serif"],
+        display: ["var(--font-inter)", "sans-serif"],
+        body: ["var(--font-inter)", "sans-serif"],
         mono: ["var(--font-jetbrains)", "monospace"],
       },
       colors: {
-        lime: {
-          DEFAULT: "#00b7ff",
-          50: "#e5f8ff",
-          100: "#ccf1ff",
-          200: "#80d9ff",
-          300: "#33c4ff",
-          400: "#00b7ff",
-          500: "#0099dd",
-          600: "#007ab3",
-          700: "#005c88",
-          800: "#003d5c",
-          900: "#001f30",
-        },
-        coral: {
-          DEFAULT: "#FF6B6B",
-          light: "#FF8E8E",
-          dark: "#FF4444",
-        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -62,6 +44,18 @@ const config: Config = {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -77,10 +71,17 @@ const config: Config = {
           "5": "hsl(var(--chart-5))",
         },
       },
+      // One radius everywhere (6px); `full` kept for avatars/pills.
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        none: "0",
+        DEFAULT: "6px",
+        sm: "6px",
+        md: "6px",
+        lg: "6px",
+        xl: "6px",
+        "2xl": "6px",
+        "3xl": "6px",
+        full: "9999px",
       },
       keyframes: {
         "accordion-down": {

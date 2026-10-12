@@ -76,43 +76,42 @@ export default function AchievementsPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-black text-2xl">{t("nav_achievements")}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">{t("nav_achievements")}</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {earnedIds.size}/{achievements.length}{" "}
             {language === "ar" ? "مفتوح" : language === "fr" ? "débloqués" : "unlocked"}{" "}
             •{" "}
-            <span className="text-lime font-medium">+{totalXpFromBadges} XP {language === "ar" ? "من الشارات" : language === "fr" ? "de badges" : "from badges"}</span>
+            <span className="text-muted-foreground font-medium">+{totalXpFromBadges} XP {language === "ar" ? "من الشارات" : language === "fr" ? "de badges" : "from badges"}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-lime" />
-          <span className="font-display font-bold text-xl">{earnedIds.size}</span>
+          <Trophy className="w-4 h-4 text-muted-foreground" />
+          <span className="font-display font-semibold text-xl">{earnedIds.size}</span>
           <span className="text-muted-foreground text-sm">/ {achievements.length}</span>
         </div>
       </div>
 
       {/* Overall progress */}
-      <Card className="overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-lime via-lime-400 to-lime-600" />
+      <Card>
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium">
               {language === "ar" ? "تقدم الإنجازات" : language === "fr" ? "Progression des succès" : "Achievement Progress"}
             </p>
-            <p className="text-sm font-bold text-lime">
+            <p className="text-sm font-semibold text-muted-foreground">
               {Math.round((earnedIds.size / achievements.length) * 100)}%
             </p>
           </div>
-          <Progress value={(earnedIds.size / achievements.length) * 100} className="h-3" />
+          <Progress value={(earnedIds.size / achievements.length) * 100} className="h-1.5" />
           <div className="grid grid-cols-4 gap-3 mt-4">
             {(["common", "rare", "epic", "legendary"] as const).map((rarity) => {
               const total = achievements.filter((a) => a.rarity === rarity).length;
               const userEarned = earned.filter((e) => e.achievement?.rarity === rarity).length;
               const config = RARITY_CONFIG[rarity];
               return (
-                <div key={rarity} className={`rounded-xl p-3 text-center ${config.bg}`}>
-                  <p className={`font-display font-bold text-lg ${config.color}`}>{userEarned}/{total}</p>
-                  <p className="text-xs text-muted-foreground capitalize mt-0.5">{rarityLabels[rarity]}</p>
+                <div key={rarity} className={`rounded-md p-3 text-center ${config.bg}`}>
+                  <p className={`font-display font-semibold text-lg ${config.color}`}>{userEarned}/{total}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{rarityLabels[rarity]}</p>
                 </div>
               );
             })}
@@ -125,8 +124,8 @@ export default function AchievementsPage() {
         {categories.map((cat) => (
           <button key={cat} onClick={() => setFilter(cat)}
             className={cn(
-              "px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all",
-              filter === cat ? "bg-lime text-[#0D0D18]" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              filter === cat ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
             )}>
             {catLabels[cat]}
           </button>
@@ -143,39 +142,39 @@ export default function AchievementsPage() {
           return (
             <div key={achievement.id}
               className={cn(
-                "relative rounded-2xl border p-5 transition-all duration-300",
+                "relative rounded-lg border p-5 transition-colors",
                 isEarned
-                  ? `${rarityConfig.bg} border-current/20 shadow-lg ${rarityConfig.glow ? `shadow-[${rarityConfig.glow}]` : ""}`
+                  ? `${rarityConfig.bg} border-border`
                   : "border-border bg-card opacity-50 grayscale"
               )}>
               {/* Rarity badge */}
               <div className="absolute top-3 right-3">
-                <span className={`text-xs font-bold capitalize ${rarityConfig.color}`}>
+                <span className={`text-xs font-semibold ${rarityConfig.color}`}>
                   {rarityLabels[achievement.rarity]}
                 </span>
               </div>
 
               {/* Icon */}
-              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center mb-4", isEarned ? "bg-white/10" : "bg-muted")}>
+              <div className="w-10 h-10 rounded-md flex items-center justify-center mb-4 bg-muted">
                 {isEarned
-                  ? <IconComp className={`w-6 h-6 ${rarityConfig.color}`} />
-                  : <Lock className="w-6 h-6 text-muted-foreground" />}
+                  ? <IconComp className={`w-5 h-5 ${rarityConfig.color}`} />
+                  : <Lock className="w-5 h-5 text-muted-foreground" />}
               </div>
 
-              <h3 className={`font-display font-bold ${isEarned ? "text-foreground" : "text-muted-foreground"}`}>
+              <h3 className={`font-display font-semibold ${isEarned ? "text-foreground" : "text-muted-foreground"}`}>
                 {achievement.name}
               </h3>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{achievement.description}</p>
 
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-lime" />
-                  <span className="text-xs font-bold text-lime">+{achievement.xp_reward} XP</span>
+                  <Zap className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground">+{achievement.xp_reward} XP</span>
                 </div>
                 {isEarned ? (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Check className="w-3 h-3 text-emerald-400" />
-                    <span className="text-emerald-400 font-medium">
+                  <div className="flex items-center gap-1 text-xs">
+                    <Check className="w-3 h-3 text-success" />
+                    <span className="text-success font-medium">
                       {language === "ar" ? "مكتسب" : language === "fr" ? "Gagné" : "Earned"}
                     </span>
                   </div>

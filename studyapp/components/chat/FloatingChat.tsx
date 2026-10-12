@@ -43,7 +43,7 @@ interface StudyRoom {
     ends_at: string | null;
 }
 
-const EMOJI_OPTIONS = ["❤️", "😂", "😮", "😢", "👍", "🔥"];
+const EMOJI_OPTIONS = ["❤", "haha", "wow", "sad", "👍", "🔥"];
 
 // ─── Voice Player ─────────────────────────────────────────────────────────────
 function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number; isMine: boolean }) {
@@ -81,16 +81,16 @@ function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number
     };
 
     const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
-    if (error) return <p className="text-xs opacity-60">🎤 Voice message (unsupported)</p>;
+    if (error) return <p className="text-xs opacity-60">Voice message (unsupported)</p>;
 
     return (
         <div className="flex items-center gap-2 min-w-[160px]">
-            <button onClick={toggle} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isMine ? "bg-[#0D0D18]/20" : "bg-lime/20"}`}>
+            <button onClick={toggle} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isMine ? "bg-primary-foreground/20" : "bg-muted/20"}`}>
                 {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 translate-x-0.5" />}
             </button>
             <div className="flex-1 space-y-1">
-                <div className={`h-1.5 rounded-full overflow-hidden ${isMine ? "bg-[#0D0D18]/20" : "bg-muted"}`}>
-                    <div className={`h-full rounded-full transition-all ${isMine ? "bg-[#0D0D18]/60" : "bg-lime"}`} style={{ width: `${progress}%` }} />
+                <div className={`h-1.5 rounded-full overflow-hidden ${isMine ? "bg-primary-foreground/20" : "bg-muted"}`}>
+                    <div className={`h-full rounded-full transition-all ${isMine ? "bg-primary-foreground/60" : "bg-muted/20"}`} style={{ width: `${progress}%` }} />
                 </div>
                 <p className="text-[10px] opacity-60">{fmt(currentTime)} / {fmt(duration ?? 0)}</p>
             </div>
@@ -101,11 +101,11 @@ function VoicePlayer({ url, duration, isMine }: { url: string; duration?: number
 // ─── Reply Preview ────────────────────────────────────────────────────────────
 function ReplyPreview({ msg, senderName, onCancel }: { msg: Message; senderName: string; onCancel?: () => void }) {
     return (
-        <div className={`flex items-start gap-2 px-3 py-1.5 rounded-xl border-l-2 border-lime bg-lime/10 ${onCancel ? "mb-2" : "mb-1 opacity-80"}`}>
+        <div className={`flex items-start gap-2 px-3 py-1.5 rounded-lg border-l-2 border-muted/20 bg-muted/10 ${onCancel ? "mb-2" : "mb-1 opacity-80"}`}>
             <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-lime truncate">{senderName}</p>
+                <p className="text-[11px] font-bold text-muted-foreground truncate">{senderName}</p>
                 <p className="text-[11px] text-muted-foreground truncate">
-                    {msg.type === "voice" ? "🎤 Voice message" : msg.type === "image" ? "🖼️ Image" : msg.content}
+                    {msg.type === "voice" ? "Voice message" : msg.type === "image" ? "Image" : msg.content}
                 </p>
             </div>
             {onCancel && (
@@ -285,7 +285,7 @@ export default function FloatingChat() {
                             return [updated[idx], ...updated.filter((_, i) => i !== idx)];
                         });
                         playNotifSound();
-                        toast({ title: `💬 ${senderName}`, description: msg.type === "voice" ? "🎤 Voice message" : msg.type === "image" ? "🖼️ Image" : msg.content.slice(0, 60) });
+                        toast({ title: senderName, description: msg.type === "voice" ? "Voice message" : msg.type === "image" ? "Image" : msg.content.slice(0, 60) });
                     }
                 }).subscribe();
         return () => { supabase.removeChannel(channel); };
@@ -299,7 +299,7 @@ export default function FloatingChat() {
                 (payload) => {
                     const room = payload.new as StudyRoom;
                     if (room.status === "waiting") {
-                        toast({ title: "📚 Study invite!", description: `${friends.find((f) => f.id === room.host_id)?.username} wants to study!` });
+                        toast({ title: "Study invite!", description: `${friends.find((f) => f.id === room.host_id)?.username} wants to study!` });
                         setStudyRoom(room); if (!open) setOpen(true);
                         const host = friends.find((f) => f.id === room.host_id);
                         if (host) setSelectedFriend(host);
@@ -407,7 +407,7 @@ export default function FloatingChat() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 targetUserId: selectedFriend.id,
-                title: `💬 ${currentUser.username}`,
+                title: currentUser.username,
                 body: content.slice(0, 100),
                 url: "/",
             }),
@@ -462,7 +462,7 @@ export default function FloatingChat() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 targetUserId: selectedFriend.id,
-                title: `📸 ${currentUser.username}`,
+                title: `${currentUser.username}`,
                 body: "Sent you an image",
                 url: "/",
             }),
@@ -511,7 +511,7 @@ export default function FloatingChat() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 targetUserId: selectedFriend.id,
-                title: `🎤 ${currentUser.username}`,
+                title: currentUser.username,
                 body: "Sent you a voice message",
                 url: "/",
             }),
@@ -534,7 +534,7 @@ export default function FloatingChat() {
         setSendingStudyInvite(true);
         await supabase.from("study_rooms").delete().or(`and(host_id.eq.${currentUser.id},guest_id.eq.${selectedFriend.id}),and(host_id.eq.${selectedFriend.id},guest_id.eq.${currentUser.id})`);
         const { data: room, error } = await supabase.from("study_rooms").insert({ host_id: currentUser.id, guest_id: selectedFriend.id, status: "waiting", duration_minutes: 25 }).select().single();
-        if (!error) { setStudyRoom(room as StudyRoom); toast({ title: "Study invite sent! ⏱" }); }
+        if (!error) { setStudyRoom(room as StudyRoom); toast({ title: "Study invite sent!" }); }
         setSendingStudyInvite(false);
     };
 
@@ -554,20 +554,24 @@ export default function FloatingChat() {
                 <>
                     {/* ── Chat panel ── */}
                     <div
-                        className="fixed z-50 bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl overflow-hidden sm:h-auto"
-                        style={{ height: "calc(var(--vh, 1vh) * 100)", maxHeight: "-webkit-fill-available" }}
+                        className="fixed z-[100] bg-card flex flex-col inset-0 sm:inset-auto sm:top-4 sm:bottom-4 sm:right-4 sm:w-[380px] sm:rounded-lg sm:border sm:border-border overflow-hidden sm:h-auto"
+                        style={{
+                            top: "var(--banner-height, env(safe-area-inset-top, 0px))",
+                            height: "100dvh",
+                            maxHeight: "-webkit-fill-available",
+                        }}
                     >
                         {selectedFriend ? (
                             <>
                                 {/* Header */}
                                 <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm shrink-0">
-                                    <button onClick={() => { setSelectedFriend(null); setReplyTo(null); }} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                    <button onClick={() => { setSelectedFriend(null); setReplyTo(null); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5" />
                                     </button>
                                     {selectedFriend.avatar_url ? (
                                         <img src={selectedFriend.avatar_url} className="w-9 h-9 rounded-full object-cover shrink-0" alt="" />
                                     ) : (
-                                        <div className="w-9 h-9 rounded-full bg-lime/20 flex items-center justify-center text-xs font-bold text-lime shrink-0">
+                                        <div className="w-9 h-9 rounded-full bg-muted/20 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
                                             {selectedFriend.username.slice(0, 2).toUpperCase()}
                                         </div>
                                     )}
@@ -575,20 +579,20 @@ export default function FloatingChat() {
                                         <p className="font-semibold text-sm truncate">{selectedFriend.username}</p>
                                         {selectedFriend.full_name && <p className="text-xs text-muted-foreground truncate">{selectedFriend.full_name}</p>}
                                     </div>
-                                    <button onClick={sendStudyInvite} disabled={sendingStudyInvite || !!studyRoom} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-lime transition-colors disabled:opacity-40">
+                                    <button onClick={sendStudyInvite} disabled={sendingStudyInvite || !!studyRoom} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-40">
                                         {sendingStudyInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Timer className="w-4 h-4" />}
                                     </button>
-                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
                                 </div>
 
                                 {/* Study room banner */}
                                 {studyRoom && (
-                                    <div className="px-4 py-2.5 bg-lime/10 border-b border-lime/20 shrink-0">
+                                    <div className="px-4 py-2.5 bg-muted/10 border-b border-muted/20 shrink-0">
                                         {studyRoom.status === "waiting" && isGuest && (
                                             <div className="flex items-center justify-between">
-                                                <p className="text-xs font-semibold text-lime">📚 Study invite!</p>
+                                                <p className="text-xs font-semibold text-muted-foreground">Study invite!</p>
                                                 <Button size="sm" className="h-6 text-xs px-3" onClick={acceptStudyInvite}>Accept</Button>
                                             </div>
                                         )}
@@ -597,8 +601,8 @@ export default function FloatingChat() {
                                         )}
                                         {studyRoom.status === "active" && (
                                             <div className="flex items-center justify-center gap-2">
-                                                <Timer className="w-3.5 h-3.5 text-lime" />
-                                                <span className="font-mono font-bold text-lime text-sm">{fmt(timeLeft)}</span>
+                                                <Timer className="w-3.5 h-3.5 text-muted-foreground" />
+                                                <span className="font-mono font-bold text-muted-foreground text-sm">{fmt(timeLeft)}</span>
                                                 <span className="text-xs text-muted-foreground">studying together</span>
                                             </div>
                                         )}
@@ -616,11 +620,11 @@ export default function FloatingChat() {
                                         </div>
                                     ) : messages.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
-                                            <div className="w-14 h-14 rounded-2xl bg-lime/10 flex items-center justify-center">
-                                                <MessageCircle className="w-7 h-7 text-lime" />
+                                            <div className="w-14 h-14 rounded-lg bg-muted/10 flex items-center justify-center">
+                                                <MessageCircle className="w-7 h-7 text-muted-foreground" />
                                             </div>
                                             <p className="text-sm font-semibold">No messages yet</p>
-                                            <p className="text-xs text-muted-foreground">Say hi to {selectedFriend.username}! 👋</p>
+                                            <p className="text-xs text-muted-foreground">Say hi to {selectedFriend.username}!</p>
                                         </div>
                                     ) : (
                                         <>
@@ -658,8 +662,8 @@ export default function FloatingChat() {
                                                                     {/* Bubble */}
                                                                     <div
                                                                         className={`relative px-3 py-2 text-sm leading-relaxed cursor-pointer select-none ${isMine
-                                                                            ? "bg-lime text-[#0D0D18] rounded-2xl rounded-br-sm"
-                                                                            : "bg-muted text-foreground rounded-2xl rounded-bl-sm"
+                                                                            ? "bg-muted/20 text-primary-foreground rounded-lg rounded-br-sm"
+                                                                            : "bg-muted text-foreground rounded-lg rounded-bl-sm"
                                                                             }`}
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
@@ -671,7 +675,7 @@ export default function FloatingChat() {
                                                                             <img
                                                                                 src={msg.media_url}
                                                                                 alt="Image"
-                                                                                className="rounded-xl max-w-[220px] max-h-[200px] object-cover"
+                                                                                className="rounded-lg max-w-[220px] max-h-[200px] object-cover"
                                                                                 onClick={(e) => { e.stopPropagation(); window.open(msg.media_url, "_blank"); }}
                                                                             />
                                                                         )}
@@ -688,14 +692,14 @@ export default function FloatingChat() {
                                                                     {/* Emoji picker */}
                                                                     {reactingTo === msg.id && (
                                                                         <div
-                                                                            className={`absolute z-[70] flex gap-1 p-2 rounded-2xl bg-card border border-border shadow-xl -top-14 ${isMine ? "right-0" : "left-0"}`}
+                                                                            className={`absolute z-[70] flex gap-1 p-2 rounded-lg bg-card border border-border -top-14 ${isMine ? "right-0" : "left-0"}`}
                                                                             onClick={(e) => e.stopPropagation()}
                                                                         >
                                                                             {EMOJI_OPTIONS.map((emoji) => (
                                                                                 <button
                                                                                     key={emoji}
                                                                                     onPointerDown={(e) => { e.stopPropagation(); handleReact(msg.id, emoji); }}
-                                                                                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-muted active:scale-125 transition-all text-lg"
+                                                                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted active:scale-125 transition-all text-lg"
                                                                                 >
                                                                                     {emoji}
                                                                                 </button>
@@ -710,7 +714,7 @@ export default function FloatingChat() {
                                                                                 <button
                                                                                     key={r.emoji}
                                                                                     onPointerDown={(e) => { e.stopPropagation(); handleReact(msg.id, r.emoji); }}
-                                                                                    className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border transition-all ${r.reacted ? "bg-lime/20 border-lime/40" : "bg-muted border-border hover:bg-muted/80"}`}
+                                                                                    className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border transition-all ${r.reacted ? "bg-muted/20 border-muted/20/40" : "bg-muted border-border hover:bg-muted/80"}`}
                                                                                 >
                                                                                     <span>{r.emoji}</span>
                                                                                     <span className="text-[10px] font-semibold">{r.count}</span>
@@ -740,21 +744,21 @@ export default function FloatingChat() {
                                     )}
                                     {recording ? (
                                         <div className="flex items-center gap-2 h-10">
-                                            <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30">
-                                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                                <span className="text-sm font-mono text-red-400">{fmt(recordingSeconds)}</span>
+                                            <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30">
+                                                <div className="w-2 h-2 rounded-full bg-destructive animate-pulse shrink-0" />
+                                                <span className="text-sm font-mono text-destructive">{fmt(recordingSeconds)}</span>
                                                 <span className="text-xs text-muted-foreground">Recording...</span>
                                             </div>
-                                            <button onClick={cancelRecording} className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors">
+                                            <button onClick={cancelRecording} className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                                                 <X className="w-4 h-4" />
                                             </button>
-                                            <button onClick={stopRecording} disabled={uploadingVoice} className="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors">
+                                            <button onClick={stopRecording} disabled={uploadingVoice} className="p-2 rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors">
                                                 {uploadingVoice ? <Loader2 className="w-4 h-4 animate-spin" /> : <StopCircle className="w-4 h-4" />}
                                             </button>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                                            <button onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
                                                 {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
                                             </button>
                                             <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -764,14 +768,14 @@ export default function FloatingChat() {
                                                 value={newMessage}
                                                 onChange={(e) => setNewMessage(e.target.value)}
                                                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                                                className="h-10 text-sm rounded-xl flex-1"
+                                                className="h-10 text-sm rounded-lg flex-1"
                                             />
                                             {newMessage.trim() ? (
-                                                <Button size="sm" className="h-10 w-10 p-0 rounded-xl shrink-0" onClick={sendMessage}>
+                                                <Button size="sm" className="h-10 w-10 p-0 rounded-lg shrink-0" onClick={sendMessage}>
                                                     <Send className="w-4 h-4" />
                                                 </Button>
                                             ) : (
-                                                <button onClick={startRecording} className="w-10 h-10 rounded-xl bg-lime/10 border border-lime/30 flex items-center justify-center text-lime hover:bg-lime/20 transition-colors shrink-0">
+                                                <button onClick={startRecording} className="w-10 h-10 rounded-lg bg-muted/10 border border-muted/30 flex items-center justify-center text-muted-foreground hover:bg-muted/20 transition-colors shrink-0">
                                                     <Mic className="w-4 h-4" />
                                                 </button>
                                             )}
@@ -784,15 +788,15 @@ export default function FloatingChat() {
                                 {/* Friends list header */}
                                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 shrink-0">
                                     <p className="font-display font-bold text-base">Messages</p>
-                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                    <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                         <ChevronLeft className="w-5 h-5 rotate-[-90deg]" />
                                     </button>
                                 </div>
 
                                 {unreadSenders.length > 0 && (
-                                    <div className="px-4 py-2 bg-lime/10 border-b border-lime/20 shrink-0">
-                                        <p className="text-xs text-lime font-semibold">
-                                            💬 New message{unreadSenders.length > 1 ? "s" : ""} from {unreadSenders.slice(0, 2).join(", ")}{unreadSenders.length > 2 ? ` +${unreadSenders.length - 2} more` : ""}
+                                    <div className="px-4 py-2 bg-muted/10 border-b border-muted/20 shrink-0">
+                                        <p className="text-xs text-muted-foreground font-semibold">
+                                            New message{unreadSenders.length > 1 ? "s" : ""} from {unreadSenders.slice(0, 2).join(", ")}{unreadSenders.length > 2 ? ` +${unreadSenders.length - 2} more` : ""}
                                         </p>
                                     </div>
                                 )}
@@ -800,7 +804,7 @@ export default function FloatingChat() {
                                 <div className="flex-1 overflow-y-auto divide-y divide-border/50">
                                     {friends.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
-                                            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                                            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
                                                 <MessageCircle className="w-8 h-8 text-muted-foreground/40" />
                                             </div>
                                             <p className="font-semibold text-muted-foreground">No friends yet</p>
@@ -813,15 +817,15 @@ export default function FloatingChat() {
                                                     {friend.avatar_url ? (
                                                         <img src={friend.avatar_url} className="w-11 h-11 rounded-full object-cover" alt="" />
                                                     ) : (
-                                                        <div className="w-11 h-11 rounded-full bg-lime/20 flex items-center justify-center font-bold text-lime text-sm">
+                                                        <div className="w-11 h-11 rounded-full bg-muted/20 flex items-center justify-center font-bold text-muted-foreground text-sm">
                                                             {friend.username.slice(0, 2).toUpperCase()}
                                                         </div>
                                                     )}
-                                                    {friend.hasUnread && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-card" />}
+                                                    {friend.hasUnread && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-destructive border-2 border-card" />}
                                                 </div>
                                                 <div className="text-left flex-1 min-w-0">
                                                     <p className="font-semibold text-sm">{friend.username}</p>
-                                                    <p className={`text-xs truncate ${friend.hasUnread ? "text-lime font-medium" : "text-muted-foreground"}`}>
+                                                    <p className={`text-xs truncate ${friend.hasUnread ? "text-muted-foreground font-medium" : "text-muted-foreground"}`}>
                                                         {friend.hasUnread ? "New message"
                                                             : friend.lastMessageAt && friend.lastMessageAt !== "1970-01-01"
                                                                 ? new Date(friend.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -838,16 +842,16 @@ export default function FloatingChat() {
                     </div>
 
                     {/* Mobile backdrop */}
-                    <div className="fixed inset-0 z-40 sm:hidden" onClick={() => { if (!selectedFriend) setOpen(false); }} />
+                    <div className="fixed inset-0 z-[99] sm:hidden" onClick={() => { if (!selectedFriend) setOpen(false); }} />
                 </>
             )}
 
             {/* FAB button */}
             {!open && (
-                <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-lime flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-transform">
-                    <MessageCircle className="w-6 h-6 text-[#0D0D18]" />
+                <button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-muted/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform">
+                    <MessageCircle className="w-6 h-6 text-primary-foreground" />
                     {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold shadow-lg">
+                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold">
                             {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                     )}
@@ -855,4 +859,4 @@ export default function FloatingChat() {
             )}
         </>
     );
-} 
+}

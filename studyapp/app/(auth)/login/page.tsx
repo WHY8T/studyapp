@@ -6,12 +6,16 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react";
+import { useLanguage } from "@/components/providers/LanguageContext";
+import { cn } from "@/lib/utils";
+import { Loader2, Mail, Lock, ArrowRight, AlertCircle, Zap } from "lucide-react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,11 +24,12 @@ function LoginForm() {
   useEffect(() => {
     if (searchParams.get("error") === "confirmation_failed") {
       toast({
-        title: "Confirmation failed",
-        description: "Your link may have expired. Please try registering again.",
+        title: t("auth_confirmation_failed"),
+        description: t("auth_confirmation_failed_desc"),
         variant: "destructive",
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -36,7 +41,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setPasswordError("Incorrect email or password. Please try again.");
+      setPasswordError(t("auth_error_credentials"));
       setLoading(false);
       return;
     }
@@ -46,29 +51,30 @@ function LoginForm() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3 lg:hidden">
-        <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center">
-          <span className="font-display font-black text-[#0D0D18] text-base">N</span>
-        </div>
-        <span className="font-display font-bold text-xl">Nahda.Edu</span>
-      </div>
-
       <div className="space-y-2">
-        <h1 className="font-display font-black text-3xl">Welcome back</h1>
-        <p className="text-muted-foreground">Continue your study journey. Your streak is waiting.</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          {t("auth_login_title")}
+        </h1>
+        <p className="text-sm text-muted-foreground">{t("auth_login_sub")}</p>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-5">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Email</label>
+          <label htmlFor="email" className="text-sm font-medium">
+            {t("auth_email")}
+          </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="email"
               type="email"
-              placeholder="you@student.edu"
+              placeholder={t("auth_email_ph")}
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setPasswordError(""); }}
-              className="pl-10"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setPasswordError("");
+              }}
+              className="ps-10"
               required
             />
           </div>
@@ -76,48 +82,70 @@ function LoginForm() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-foreground/80">Password</label>
-            <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-lime transition-colors">
-              Forgot password?
+            <label htmlFor="password" className="text-sm font-medium">
+              {t("auth_password")}
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("auth_forgot")}
             </Link>
           </div>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="password"
+            <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <PasswordInput
+              id="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
-              className={`pl-10 ${passwordError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordError("");
+              }}
+              className={cn(
+                "ps-10",
+                passwordError && "border-destructive focus-visible:ring-destructive"
+              )}
               required
             />
           </div>
           {passwordError && (
-            <div className="flex items-center gap-2 text-red-500 text-sm mt-1">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{passwordError}</span>
-            </div>
+            <p className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {passwordError}
+            </p>
           )}
         </div>
 
-        <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
-          {loading ? <Loader2 className="animate-spin" /> : <><ArrowRight className="w-4 h-4" />Sign in</>}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? (
+            <Loader2 className="animate-spin" />
+          ) : (
+            <>
+              {t("sign_in")}
+              <ArrowRight />
+            </>
+          )}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        New to Nahda.Edu?{" "}
-        <Link href="/register" className="font-semibold text-lime hover:text-lime-300 transition-colors">
-          Create your account →
+        {t("auth_no_account")}{" "}
+        <Link
+          href="/register"
+          className="font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+        >
+          {t("auth_create_btn")}
         </Link>
       </p>
 
-      <div className="rounded-xl border border-lime/20 bg-lime/5 p-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-lime flex items-center justify-center shrink-0">
-          <span className="text-[#0D0D18] font-bold text-sm">⚡</span>
+      <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/40 p-3.5">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10">
+          <Zap className="h-4 w-4 text-primary" />
         </div>
         <p className="text-sm text-muted-foreground">
-          <span className="text-foreground font-semibold">+20 XP</span> for logging in during an active streak day
+          <span className="font-medium text-foreground">{t("auth_xp_login")}</span>{" "}
+          {t("auth_xp_login_desc")}
         </p>
       </div>
     </div>
@@ -126,7 +154,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={null}>
       <LoginForm />
     </Suspense>
   );

@@ -6,9 +6,12 @@ import {
   Folder, MoreVertical, Trash2, Edit3,
   ChevronRight, Home, Eye, ZoomIn, ZoomOut,
   X, Star, ArrowLeft,
-  Share2, Lock, Globe, Copy, Check, Link, Plus,
+  Share2, Lock, Globe, Copy, Check, Link, Plus, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,9 +39,12 @@ interface PDFFolder {
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "date" | "size";
 
+// Design-token folder colours — no hardcoded hex.
 const FOLDER_COLORS = [
-  "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
-  "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16",
+  "hsl(var(--primary))",
+  "hsl(var(--success))",
+  "hsl(var(--destructive))",
+  "hsl(var(--muted-foreground))",
 ];
 
 function fmtSize(bytes: number) {
@@ -155,8 +161,8 @@ function CtxMenu({ x, y, items, onClose }: CtxMenuProps) {
 
   return (
     <div
-      className="fixed z-50 w-48 rounded-xl border border-white/10 bg-[#0e0e1a]/98 backdrop-blur-xl shadow-2xl py-1 overflow-hidden"
-      style={{ left: x, top: y, boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}
+      className="fixed z-50 w-48 rounded-md border border-border bg-card py-1 overflow-hidden"
+      style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
       {items.map((item) => (
@@ -166,8 +172,8 @@ function CtxMenu({ x, y, items, onClose }: CtxMenuProps) {
           className={cn(
             "w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left",
             item.danger
-              ? "text-red-400 hover:bg-red-500/10"
-              : "text-white/70 hover:bg-white/5 hover:text-white"
+              ? "text-destructive hover:bg-destructive/10"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           )}
         >
           {item.icon}
@@ -205,28 +211,26 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(8,8,15,0.85)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-[420px] bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+        className="w-[420px] rounded-md border border-border bg-card overflow-hidden"
         onClick={(e) => e.stopPropagation()}
-        style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/8">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#00b7ff]/15 flex items-center justify-center">
-              <Share2 className="w-4 h-4 text-[#00b7ff]" />
+            <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center">
+              <Share2 className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm">Share PDF</h3>
-              <p className="text-xs text-white/30 truncate max-w-[220px]">{file.name}</p>
+              <h3 className="font-display font-semibold text-sm">Share PDF</h3>
+              <p className="text-xs text-muted-foreground truncate max-w-[220px]">{file.name}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white hover:bg-white/8 transition-colors"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -234,41 +238,36 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
 
         <div className="px-6 py-5 space-y-5">
           <div>
-            <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Access</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Access</p>
             <div className="grid grid-cols-2 gap-2">
               {(["public", "private"] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => setVisibility(v)}
                   className={cn(
-                    "relative flex flex-col items-start gap-2 p-4 rounded-xl border transition-all text-left",
+                    "relative flex flex-col items-start gap-2 p-4 rounded-md border transition-colors text-left",
                     visibility === v
-                      ? v === "public"
-                        ? "border-[#00b7ff]/50 bg-[#00b7ff]/10"
-                        : "border-amber-400/50 bg-amber-400/8"
-                      : "border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15"
+                      ? "border-primary/50 bg-primary/10"
+                      : "border-border bg-muted/30 hover:bg-muted/50"
                   )}
                 >
                   <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                    visibility === v ? v === "public" ? "bg-[#00b7ff]/20" : "bg-amber-400/20" : "bg-white/8"
+                    "w-8 h-8 rounded-md flex items-center justify-center",
+                    visibility === v ? "bg-primary/15" : "bg-muted/50"
                   )}>
                     {v === "public"
-                      ? <Globe className={cn("w-4 h-4", visibility === v ? "text-[#00b7ff]" : "text-white/40")} />
-                      : <Lock className={cn("w-4 h-4", visibility === v ? "text-amber-400" : "text-white/40")} />}
+                      ? <Globe className={cn("w-4 h-4", visibility === v ? "text-primary" : "text-muted-foreground")} />
+                      : <Lock className={cn("w-4 h-4", visibility === v ? "text-foreground" : "text-muted-foreground")} />}
                   </div>
                   <div>
-                    <p className={cn("text-sm font-semibold capitalize", visibility === v ? "text-white" : "text-white/50")}>{v}</p>
-                    <p className="text-[10px] text-white/25 leading-tight mt-0.5">
+                    <p className={cn("text-sm font-semibold capitalize", visibility === v ? "text-foreground" : "text-muted-foreground")}>{v}</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
                       {v === "public" ? "Anyone with the link" : "Only you can access"}
                     </p>
                   </div>
                   {visibility === v && (
-                    <div className={cn(
-                      "absolute top-3 right-3 w-4 h-4 rounded-full flex items-center justify-center",
-                      v === "public" ? "bg-[#00b7ff]" : "bg-amber-400"
-                    )}>
-                      <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                    <div className="absolute top-3 right-3 w-4 h-4 rounded-full flex items-center justify-center bg-primary">
+                      <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3} />
                     </div>
                   )}
                 </button>
@@ -277,38 +276,30 @@ function ShareModal({ file, onSave, onClose }: ShareModalProps) {
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Share link</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Share link</p>
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-white/10 bg-white/4">
-                <Link className="w-3.5 h-3.5 text-white/25 shrink-0" />
-                <span className="text-xs text-white/40 font-mono truncate flex-1">{shareLink}</span>
+              <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-md border border-border bg-muted/50">
+                <Link className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground font-mono truncate flex-1">{shareLink}</span>
               </div>
-              <button
+              <Button
+                variant="outline"
                 onClick={handleCopy}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all shrink-0",
-                  copied
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                    : "bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
-                )}
+                className={cn("shrink-0 gap-1.5 text-xs", copied && "border-success/40 bg-success/10 text-success hover:bg-success/10")}
               >
                 {copied ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-6 pb-6">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all">
+        <div className="flex items-center justify-end gap-2 px-6 pb-6">
+          <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={() => { onSave(shareId, visibility); onClose(); }}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all"
-            style={{ boxShadow: "0 0 20px rgba(0,183,255,0.25)" }}
-          >
+          </Button>
+          <Button size="sm" onClick={() => { onSave(shareId, visibility); onClose(); }}>
             <Share2 className="w-3.5 h-3.5" /> Save & Share
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -344,39 +335,39 @@ function PDFViewer({ file, onClose }: ViewerProps) {
 
   return (
     <div
-      className="fixed inset-0 flex flex-col"
-      style={{ zIndex: isExpanded ? 150 : 100, background: "#08080F" }}
+      className="fixed inset-0 flex flex-col bg-background"
+      style={{ zIndex: isExpanded ? 150 : 100 }}
     >
       {/* Header */}
-      <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 shrink-0 bg-[#0e0e1a]/80 backdrop-blur">
+      <div className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0 bg-card">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
           >
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
-          <div className="w-px h-5 bg-white/10" />
+          <div className="w-px h-5 bg-border" />
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#00b7ff]/20 flex items-center justify-center">
-              <FileText className="w-3.5 h-3.5 text-[#00b7ff]" />
+            <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
+              <FileText className="w-3.5 h-3.5 text-primary" />
             </div>
-            <span className="font-semibold text-white text-sm truncate max-w-xs">{file.name}</span>
+            <span className="font-semibold text-foreground text-sm truncate max-w-xs">{file.name}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-muted/50 border border-border">
             <button
               onClick={() => setZoom((z) => Math.max(50, z - 10))}
-              className="p-0.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="text-xs font-mono text-white/60 w-10 text-center">{zoom}%</span>
+            <span className="text-xs font-mono text-muted-foreground w-10 text-center">{zoom}%</span>
             <button
               onClick={() => setZoom((z) => Math.min(200, z + 10))}
-              className="p-0.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
@@ -384,7 +375,7 @@ function PDFViewer({ file, onClose }: ViewerProps) {
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+            className="w-8 h-8 rounded-md flex items-center justify-center bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -392,7 +383,7 @@ function PDFViewer({ file, onClose }: ViewerProps) {
       </div>
 
       {/* PDF content */}
-      <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-[#06060d]">
+      <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-muted/30">
         <div
           style={{
             transform: `scale(${zoom / 100})`,
@@ -403,26 +394,26 @@ function PDFViewer({ file, onClose }: ViewerProps) {
           {file.url ? (
             <iframe
               src={`${file.url}#toolbar=0&navpanes=0&scrollbar=0`}
-              className="rounded-xl shadow-2xl"
-              style={{ width: "816px", height: "80vh", border: "none", background: "white" }}
+              className="rounded-md border border-border"
+              style={{ width: "816px", height: "80vh", background: "hsl(var(--muted))" }}
               title={file.name}
             />
           ) : (
-            <div className="w-[816px] h-[80vh] rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-4">
-              <FileText className="w-16 h-16 text-white/20" />
-              <p className="text-white/40 text-sm">Preview not available</p>
+            <div className="w-[816px] h-[80vh] rounded-md bg-muted/50 border border-border flex flex-col items-center justify-center gap-4">
+              <FileText className="w-16 h-16 text-muted-foreground" />
+              <p className="text-muted-foreground text-sm">Preview not available</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Keyboard hints */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur pointer-events-none">
-        <span className="text-xs text-white/30 font-mono">ESC</span>
-        <span className="text-xs text-white/20">close</span>
-        <span className="w-px h-3 bg-white/10" />
-        <span className="text-xs text-white/30 font-mono">+ / -</span>
-        <span className="text-xs text-white/20">zoom</span>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full bg-muted/50 border border-border pointer-events-none">
+        <span className="text-xs text-muted-foreground font-mono">ESC</span>
+        <span className="text-xs text-muted-foreground">close</span>
+        <span className="w-px h-3 bg-border" />
+        <span className="text-xs text-muted-foreground font-mono">+ / -</span>
+        <span className="text-xs text-muted-foreground">zoom</span>
       </div>
     </div>
   );
@@ -442,15 +433,14 @@ function RenameModal({
   const [val, setVal] = useState(current);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(8,8,15,0.8)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl"
+        className="w-80 rounded-md border border-border bg-card p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-bold text-white mb-4">Rename</h3>
+        <h3 className="font-display font-semibold mb-4">Rename</h3>
         <input
           autoFocus
           value={val}
@@ -459,18 +449,15 @@ function RenameModal({
             if (e.key === "Enter") { onSave(val); onClose(); }
             if (e.key === "Escape") onClose();
           }}
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
+          className="w-full rounded-md border border-input bg-transparent px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
         />
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">
+          <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={() => { onSave(val); onClose(); }}
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
-          >
+          </Button>
+          <Button size="sm" onClick={() => { onSave(val); onClose(); }}>
             Save
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -490,15 +477,14 @@ function NewFolderModal({
   const [color, setColor] = useState(FOLDER_COLORS[0]);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(8,8,15,0.8)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-80 bg-[#0e0e1a] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5"
+        className="w-80 rounded-md border border-border bg-card p-6 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-bold text-white">New Folder</h3>
+        <h3 className="font-display font-semibold">New Folder</h3>
         <input
           autoFocus
           value={name}
@@ -507,35 +493,28 @@ function NewFolderModal({
             if (e.key === "Enter") { onSave(name, color); onClose(); }
             if (e.key === "Escape") onClose();
           }}
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/40"
+          className="w-full rounded-md border border-input bg-transparent px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
         />
         <div>
-          <p className="text-xs text-white/40 mb-2 font-medium">Colour</p>
+          <p className="text-xs text-muted-foreground mb-2 font-medium">Colour</p>
           <div className="flex flex-wrap gap-2">
             {FOLDER_COLORS.map((c) => (
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className="w-7 h-7 rounded-lg transition-all"
-                style={{
-                  background: c,
-                  boxShadow: color === c ? `0 0 0 2px #0e0e1a, 0 0 0 4px ${c}` : "none",
-                  transform: color === c ? "scale(1.15)" : "scale(1)",
-                }}
+                className={cn("w-7 h-7 rounded-md border-2 transition-transform", color === c ? "border-foreground scale-110" : "border-transparent")}
+                style={{ background: c }}
               />
             ))}
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5">
+          <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={() => { onSave(name, color); onClose(); }}
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90"
-          >
+          </Button>
+          <Button size="sm" onClick={() => { onSave(name, color); onClose(); }}>
             Create
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -676,8 +655,8 @@ export default function ShowcasePage() {
 
   if (!loaded) {
     return (
-      <div className="flex items-center justify-center h-64 text-white/30 text-sm">
-        Loading…
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
       </div>
     );
   }
@@ -692,13 +671,10 @@ export default function ShowcasePage() {
       onDrop={onDrop}
     >
       {dragging && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
-          style={{ background: "rgba(0,183,255,0.07)", border: "2px dashed #00b7ff" }}
-        >
+        <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none bg-primary/5 border-2 border-dashed border-primary">
           <div className="text-center">
-            <Upload className="w-12 h-12 text-[#00b7ff] mx-auto mb-3" />
-            <p className="text-[#00b7ff] font-bold text-xl">Drop PDFs here</p>
+            <Upload className="w-12 h-12 text-primary mx-auto mb-3" />
+            <p className="text-primary font-semibold text-xl">Drop PDFs here</p>
           </div>
         </div>
       )}
@@ -706,25 +682,18 @@ export default function ShowcasePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="font-display font-black text-2xl">PDF Showcase</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <h1 className="font-display font-semibold text-2xl tracking-tight">PDF Showcase</h1>
+          <p className="text-muted-foreground text-sm mt-1">
             {files.length} files · {folders.length} folders
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowNewFolder(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all"
-          >
+          <Button variant="outline" onClick={() => setShowNewFolder(true)}>
             <FolderPlus className="w-4 h-4" /> New Folder
-          </button>
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#00b7ff] text-black hover:bg-[#00b7ff]/90 transition-all shadow-lg"
-            style={{ boxShadow: "0 0 20px rgba(0,183,255,0.3)" }}
-          >
+          </Button>
+          <Button onClick={() => inputRef.current?.click()}>
             <Upload className="w-4 h-4" /> Upload PDF
-          </button>
+          </Button>
           <input
             ref={inputRef}
             type="file"
@@ -741,14 +710,14 @@ export default function ShowcasePage() {
         <div className="flex items-center gap-1 text-sm">
           {breadcrumbs.map((crumb, i) => (
             <span key={crumb.id ?? "root"} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-white/20" />}
+              {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
               <button
                 onClick={() => setCurrentFolderId(crumb.id)}
                 className={cn(
-                  "px-2 py-1 rounded-lg transition-colors font-medium",
+                  "px-2 py-1 rounded-md transition-colors font-medium",
                   i === breadcrumbs.length - 1
-                    ? "text-white"
-                    : "text-white/40 hover:text-white hover:bg-white/5"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
                 {i === 0 && <Home className="w-3.5 h-3.5 inline mr-1" />}
@@ -759,33 +728,33 @@ export default function ShowcasePage() {
         </div>
         <div className="flex-1" />
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search…"
-            className="w-44 pl-8 pr-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/30"
+            className="w-44 pl-8 pr-3 py-1.5 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
           />
         </div>
         <select
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white/60 focus:outline-none appearance-none cursor-pointer"
+          className="px-3 py-1.5 rounded-md border border-input bg-transparent text-sm text-muted-foreground focus:outline-none appearance-none cursor-pointer"
         >
           <option value="date">By date</option>
           <option value="name">By name</option>
           <option value="size">By size</option>
         </select>
-        <div className="flex rounded-xl border border-white/10 overflow-hidden">
+        <div className="flex rounded-md border border-border overflow-hidden">
           <button
             onClick={() => setViewMode("grid")}
-            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "grid" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}
+            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "grid" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}
           >
             <Grid3X3 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setViewMode("list")}
-            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "list" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "text-white/30 hover:text-white hover:bg-white/5")}
+            className={cn("px-2.5 py-1.5 transition-colors", viewMode === "list" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}
           >
             <List className="w-3.5 h-3.5" />
           </button>
@@ -795,18 +764,18 @@ export default function ShowcasePage() {
       {/* Starred strip */}
       {!currentFolderId && !search && starredFiles.length > 0 && (
         <div className="mb-5">
-          <p className="text-xs font-semibold text-white/30 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-            <Star className="w-3 h-3 text-amber-400" /> Starred
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Star className="w-3 h-3 text-primary" /> Starred
           </p>
           <div className="flex gap-3 overflow-x-auto pb-1">
             {starredFiles.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setViewerFile(f)}
-                className="flex-none flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 transition-all"
+                className="flex-none flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/50 hover:bg-muted transition-colors"
               >
-                <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="text-xs font-medium text-white/70 max-w-[100px] truncate">{f.name}</span>
+                <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="text-xs font-medium text-muted-foreground max-w-[100px] truncate">{f.name}</span>
               </button>
             ))}
           </div>
@@ -816,36 +785,36 @@ export default function ShowcasePage() {
       {/* Content */}
       <div className="flex-1 overflow-auto min-h-0">
         {isEmpty && !search ? (
-          <div
-            className="flex flex-col items-center justify-center h-80 rounded-2xl border-2 border-dashed border-white/10 cursor-pointer hover:border-[#00b7ff]/40 hover:bg-[#00b7ff]/5 transition-all group"
-            onClick={() => inputRef.current?.click()}
-          >
-            <div className="w-16 h-16 rounded-2xl bg-[#00b7ff]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Upload className="w-7 h-7 text-[#00b7ff]" />
-            </div>
-            <p className="font-bold text-white/60 mb-1">Drop PDFs or click to upload</p>
-            <p className="text-sm text-white/30">Supports multiple files</p>
+          <div className="flex flex-col items-center">
+            <EmptyState
+              icon={Upload}
+              title="No PDFs yet"
+              description="Drop PDF files anywhere on this page to add them to your showcase."
+              className="py-16"
+            />
+            <Button onClick={() => inputRef.current?.click()}>
+              <Upload className="w-4 h-4" /> Upload PDF
+            </Button>
           </div>
         ) : isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-40 text-white/30">
-            <Search className="w-8 h-8 mb-2 opacity-40" />
-            <p className="text-sm">No results for &ldquo;{search}&rdquo;</p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="No results"
+            description={`No files match “${search}”.`}
+            className="py-16"
+          />
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {visibleFolders.map((folder) => (
               <div
                 key={folder.id}
-                className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer p-4 flex flex-col items-center gap-2 hover:border-white/15"
+                className="group relative rounded-md border border-border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer p-4 flex flex-col items-center gap-2"
                 onDoubleClick={() => setCurrentFolderId(folder.id)}
                 onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}
               >
-                <Folder
-                  className="w-12 h-12 transition-transform group-hover:scale-105"
-                  style={{ color: folder.color, fill: `${folder.color}30` }}
-                />
-                <p className="text-xs font-semibold text-white/70 text-center truncate w-full">{folder.name}</p>
-                <p className="text-[10px] text-white/25">
+                <Folder className="w-12 h-12 transition-transform group-hover:scale-105" style={{ color: folder.color }} />
+                <p className="text-xs font-semibold text-foreground text-center truncate w-full">{folder.name}</p>
+                <p className="text-[10px] text-muted-foreground">
                   {files.filter((f) => f.folderId === folder.id).length} files
                 </p>
               </div>
@@ -854,39 +823,30 @@ export default function ShowcasePage() {
             {visibleFiles.map((file) => (
               <div
                 key={file.id}
-                className="group relative rounded-2xl border border-white/8 bg-white/3 hover:bg-white/6 transition-all cursor-pointer overflow-hidden"
+                className="group relative rounded-md border border-border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer overflow-hidden"
                 onContextMenu={(e) => openCtxMenu(e, "file", file.id)}
               >
-                <div
-                  className="h-28 flex items-center justify-center relative overflow-hidden"
-                  style={{ background: "linear-gradient(135deg, rgba(0,183,255,0.06), rgba(0,183,255,0.02))" }}
-                >
-                  <FileText className="w-10 h-10 text-[#00b7ff]/60 group-hover:scale-110 transition-transform" />
-                  {file.starred && <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                <div className="h-28 flex items-center justify-center relative overflow-hidden bg-muted/50">
+                  <FileText className="w-10 h-10 text-primary group-hover:scale-110 transition-transform" />
+                  {file.starred && <Star className="absolute top-2 right-2 w-3.5 h-3.5 text-primary fill-primary" />}
                   {file.shareVisibility && (
-                    <span className={cn(
-                      "absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold",
-                      file.shareVisibility === "public" ? "bg-[#00b7ff]/20 text-[#00b7ff]" : "bg-amber-400/20 text-amber-400"
-                    )}>
+                    <Badge variant="secondary" className="absolute top-2 left-2 gap-1 px-1.5 py-0.5 text-[9px]">
                       {file.shareVisibility === "public"
                         ? <><Globe className="w-2 h-2" /> Public</>
                         : <><Lock className="w-2 h-2" /> Private</>}
-                    </span>
+                    </Badge>
                   )}
-                  <div
-                    className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: "rgba(0,0,0,0.7)" }}
-                  >
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80">
                     <button
                       onClick={() => setViewerFile(file)}
-                      className="w-9 h-9 rounded-xl bg-[#00b7ff] text-black flex items-center justify-center hover:scale-110 transition-transform"
+                      className="w-9 h-9 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors"
                       title="Open"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setSharingFile(file); }}
-                      className="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center hover:scale-110 hover:bg-white/20 transition-all"
+                      className="w-9 h-9 rounded-md bg-muted text-foreground flex items-center justify-center hover:bg-muted/70 transition-colors"
                       title="Share"
                     >
                       <Share2 className="w-4 h-4" />
@@ -894,8 +854,8 @@ export default function ShowcasePage() {
                   </div>
                 </div>
                 <div className="p-2.5 space-y-0.5">
-                  <p className="text-xs font-semibold text-white/80 truncate">{file.name}</p>
-                  <p className="text-[10px] text-white/30">{fmtSize(file.size)} · {fmtDate(file.uploadedAt)}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{fmtSize(file.size)} · {fmtDate(file.uploadedAt)}</p>
                 </div>
               </div>
             ))}
@@ -904,25 +864,25 @@ export default function ShowcasePage() {
             {!search && (
               <div
                 onClick={() => inputRef.current?.click()}
-                className="group rounded-2xl border-2 border-dashed border-white/8 hover:border-[#00b7ff]/50 hover:bg-[#00b7ff]/5 transition-all cursor-pointer flex flex-col items-center justify-center gap-2"
+                className="group rounded-md border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/50 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2"
                 style={{ minHeight: "140px" }}
               >
-                <div className="w-10 h-10 rounded-xl bg-white/4 group-hover:bg-[#00b7ff]/15 flex items-center justify-center transition-colors">
-                  <Plus className="w-5 h-5 text-white/20 group-hover:text-[#00b7ff] transition-colors" />
+                <div className="w-10 h-10 rounded-md bg-muted/50 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+                  <Plus className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
-                <p className="text-[10px] font-semibold text-white/20 group-hover:text-[#00b7ff]/70 transition-colors">Add PDFs</p>
+                <p className="text-[10px] font-semibold text-muted-foreground group-hover:text-primary transition-colors">Add PDFs</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/8 overflow-hidden">
+          <div className="rounded-md border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/8" style={{ background: "rgba(255,255,255,0.02)" }}>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider">Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider hidden sm:table-cell">Size</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider hidden md:table-cell">Uploaded</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-white/30 uppercase tracking-wider hidden md:table-cell">Visibility</th>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Size</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Uploaded</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Visibility</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -930,25 +890,25 @@ export default function ShowcasePage() {
                 {visibleFolders.map((folder) => (
                   <tr
                     key={folder.id}
-                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
+                    className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer group"
                     onDoubleClick={() => setCurrentFolderId(folder.id)}
                     onContextMenu={(e) => openCtxMenu(e, "folder", folder.id)}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <Folder className="w-5 h-5 shrink-0" style={{ color: folder.color, fill: `${folder.color}30` }} />
-                        <span className="font-medium text-white/80">{folder.name}</span>
+                        <Folder className="w-5 h-5 shrink-0" style={{ color: folder.color }} />
+                        <span className="font-medium text-foreground">{folder.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden sm:table-cell">
                       {files.filter((f) => f.folderId === folder.id).length} files
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(folder.createdAt)}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">{fmtDate(folder.createdAt)}</td>
                     <td className="px-4 py-3 hidden md:table-cell" />
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={(e) => openCtxMenu(e, "folder", folder.id)}
-                        className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white opacity-0 group-hover:opacity-100"
+                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
                       >
                         <MoreVertical className="w-3.5 h-3.5" />
                       </button>
@@ -958,38 +918,35 @@ export default function ShowcasePage() {
                 {visibleFiles.map((file) => (
                   <tr
                     key={file.id}
-                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer group"
+                    className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer group"
                     onDoubleClick={() => setViewerFile(file)}
                     onContextMenu={(e) => openCtxMenu(e, "file", file.id)}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 shrink-0 text-[#00b7ff]/60" />
-                        <span className="font-medium text-white/80">{file.name}</span>
-                        {file.starred && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                        <FileText className="w-5 h-5 shrink-0 text-primary" />
+                        <span className="font-medium text-foreground">{file.name}</span>
+                        {file.starred && <Star className="w-3.5 h-3.5 text-primary fill-primary" />}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-xs hidden sm:table-cell">{fmtSize(file.size)}</td>
-                    <td className="px-4 py-3 text-white/30 text-xs hidden md:table-cell">{fmtDate(file.uploadedAt)}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden sm:table-cell">{fmtSize(file.size)}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">{fmtDate(file.uploadedAt)}</td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {file.shareVisibility ? (
-                        <span className={cn(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
-                          file.shareVisibility === "public" ? "bg-[#00b7ff]/15 text-[#00b7ff]" : "bg-amber-400/15 text-amber-400"
-                        )}>
+                        <Badge variant="secondary" className="gap-1 text-[10px] font-medium">
                           {file.shareVisibility === "public"
                             ? <><Globe className="w-2.5 h-2.5" /> Public</>
                             : <><Lock className="w-2.5 h-2.5" /> Private</>}
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="text-white/15 text-xs">—</span>
+                        <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
-                        <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-[#00b7ff]/20 text-white/30 hover:text-[#00b7ff]"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white"><Share2 className="w-3.5 h-3.5" /></button>
-                        <button onClick={(e) => openCtxMenu(e, "file", file.id)} className="p-1 rounded hover:bg-white/10 text-white/20 hover:text-white"><MoreVertical className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setViewerFile(file)} className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setSharingFile(file); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Share2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => openCtxMenu(e, "file", file.id)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><MoreVertical className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -997,12 +954,12 @@ export default function ShowcasePage() {
                 {/* Add more row */}
                 {!search && (
                   <tr
-                    className="hover:bg-[#00b7ff]/5 transition-colors cursor-pointer group"
+                    className="hover:bg-muted/50 transition-colors cursor-pointer group"
                     onClick={() => inputRef.current?.click()}
                   >
                     <td className="px-4 py-3" colSpan={5}>
-                      <div className="flex items-center gap-3 text-white/20 group-hover:text-[#00b7ff]/60 transition-colors">
-                        <div className="w-5 h-5 rounded border border-dashed border-white/15 group-hover:border-[#00b7ff]/40 flex items-center justify-center transition-colors shrink-0">
+                      <div className="flex items-center gap-3 text-muted-foreground group-hover:text-primary transition-colors">
+                        <div className="w-5 h-5 rounded border border-dashed border-border group-hover:border-primary/50 flex items-center justify-center transition-colors shrink-0">
                           <Plus className="w-3 h-3" />
                         </div>
                         <span className="text-xs font-medium">Add more PDFs…</span>

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useLanguage, type Language } from "@/components/providers/LanguageContext";
-import { Globe } from "lucide-react";
+import { Globe, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LANGUAGES = [
@@ -36,7 +36,7 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
                 className={cn(
                     "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                     variant === "dark"
-                        ? "border border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+                        ? "border border-border/20 text-muted-foreground/70 hover:text-foreground hover:bg-muted/10"
                         : "border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
             >
@@ -48,9 +48,9 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
             {open && (
                 <div
                     className={cn(
-                        "absolute top-full mt-2 right-0 z-50 rounded-xl border shadow-xl overflow-hidden min-w-[130px]",
+                        "absolute top-full mt-2 end-0 z-50 rounded-lg border overflow-hidden min-w-[130px] max-w-[160px]",
                         variant === "dark"
-                            ? "bg-[#0D0D18] border-white/15"
+                            ? "bg-card border-border/15"
                             : "bg-card border-border"
                     )}
                 >
@@ -62,16 +62,16 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
                                 "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
                                 language === lang.code
                                     ? variant === "dark"
-                                        ? "bg-lime/10 text-lime font-semibold"
+                                        ? "bg-muted/10 text-muted-foreground font-semibold"
                                         : "bg-primary/10 text-primary font-semibold"
                                     : variant === "dark"
-                                        ? "text-white/70 hover:bg-white/5 hover:text-white"
+                                        ? "text-muted-foreground/70 hover:bg-muted/5 hover:text-foreground"
                                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                             )}
                         >
                             {/* Colored dot instead of flag emoji */}
                             <span className={cn(
-                                "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black",
+                                "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold",
                                 lang.code === "en" ? "bg-blue-500/20 text-blue-400" :
                                     lang.code === "ar" ? "bg-green-500/20 text-green-400" :
                                         "bg-purple-500/20 text-purple-400"
@@ -80,7 +80,7 @@ export function LanguageSwitcher({ variant = "default" }: LanguageSwitcherProps)
                             </span>
                             <span>{lang.label}</span>
                             {language === lang.code && (
-                                <span className="ml-auto text-xs opacity-60">✓</span>
+                                <Check className="ms-auto h-3.5 w-3.5 opacity-60" />
                             )}
                         </button>
                     ))}

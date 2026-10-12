@@ -21,7 +21,7 @@ interface PersistedState {
   secondsLeft: number;
   sessionCount: number;
   isRunning: boolean;
-  savedAt: number;
+  endTime: number | null; // absolute wall-clock end timestamp (ms)
 }
 
 function loadPersistedState(): PersistedState | null {
@@ -30,9 +30,13 @@ function loadPersistedState(): PersistedState | null {
     const raw = localStorage.getItem(PERSIST_KEY);
     if (!raw) return null;
     const state: PersistedState = JSON.parse(raw);
-    if (state.isRunning && state.savedAt) {
-      const elapsed = Math.floor((Date.now() - state.savedAt) / 1000);
-      state.secondsLeft = Math.max(0, state.secondsLeft - elapsed);
+
+    // BUG FIX 1: Use the stored endTime directly instead of re-computing
+    // elapsed from a savedAt snapshot. The old code used savedAt + secondsLeft
+    // which drifted every time the page re-rendered while running.
+    if (state.isRunning && state.endTime) {
+      const remaining = Math.round((state.endTime - Date.now()) / 1000);
+      state.secondsLeft = Math.max(0, remaining);
     }
     return state;
   } catch {
@@ -63,15 +67,17 @@ export function usePomodoro({
 }: UsePomodoroOptions = {}) {
   const settings = { ...DEFAULT_SETTINGS, ...settingsOverride };
 
-  const persisted = typeof window !== "undefined" ? loadPersistedState() : null;
-
-  const [phase, setPhase] = useState<PomodoroPhase>(persisted?.phase ?? "work");
-  const [isRunning, setIsRunning] = useState(persisted?.isRunning ?? false);
-  const [sessionCount, setSessionCount] = useState(persisted?.sessionCount ?? 0);
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    if (persisted) return persisted.secondsLeft;
-    return settings.workMinutes * 60;
-  });
+  // HYDRATION FIX: initialize with defaults only — localStorage is never
+  // read during render. The old code restored the persisted phase here,
+  // which only ran on the client (server has no window), so the first
+  // client render diverged from the server HTML: e.g. a saved "break"
+  // phase rendered the Coffee icon on the client while the server had
+  // rendered "work" with the Brain icon. The saved state is restored in
+  // an effect after mount instead (see "Restore persisted state" below).
+  const [phase, setPhase] = useState<PomodoroPhase>("work");
+  const [isRunning, setIsRunning] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const phaseRef = useRef<PomodoroPhase>(phase);
@@ -80,10 +86,9 @@ export function usePomodoro({
   const workSecondsElapsedRef = useRef(0);
   const secondsLeftRef = useRef(secondsLeft);
 
-  // ── Wall-clock refs — the key fix ──────────────────────────────────────
-  // endTimeRef stores the absolute timestamp when the current phase will end.
-  // This is immune to tab throttling because we diff against Date.now() each
-  // tick instead of trusting that exactly 1 000 ms passed between ticks.
+  // The single source of truth for "when does this phase end".
+  // Set when timer starts/resumes, cleared when paused/reset/phase-ends.
+  // (Restored from persisted state after mount — see the restore effect.)
   const endTimeRef = useRef<number | null>(null);
 
   phaseRef.current = phase;
@@ -91,32 +96,82 @@ export function usePomodoro({
   settingsRef.current = settings;
   secondsLeftRef.current = secondsLeft;
 
-  // Persist state on every meaningful change
+  // True once the persisted state has been restored after mount. Gates the
+  // persist effect so the mount render's defaults can't overwrite the saved
+  // state before it has been read back.
+  const hydratedRef = useRef(false);
+
+  // ── Persist state — store endTime, NOT savedAt ────────────────────────────
+  // BUG FIX 3: The old code saved `savedAt: Date.now()` on EVERY render tick
+  // (because secondsLeft was in the dep array). This meant the savedAt was
+  // always "now" and elapsed = 0, so the timer appeared to resume from the
+  // same point. We now save endTime instead, which is stable across ticks.
   useEffect(() => {
-    saveState({ phase, secondsLeft, sessionCount, isRunning, savedAt: Date.now() });
+    // Skip the mount run: the restore effect below hasn't read the saved
+    // state yet, so saving here would clobber it with defaults.
+    if (!hydratedRef.current) return;
+    saveState({
+      phase,
+      secondsLeft,
+      sessionCount,
+      isRunning,
+      endTime: endTimeRef.current,
+    });
   }, [phase, secondsLeft, sessionCount, isRunning]);
 
-  // Persist state when page is hidden / unloaded
+  // ── Restore persisted state after mount (hydration-safe) ──────────────────
+  // Deliberately declared AFTER the persist effect: effects run in
+  // declaration order, so on mount the persist effect sees hydratedRef
+  // === false and skips, keeping the saved state intact until it is read
+  // here. Must stay an empty-deps mount effect.
   useEffect(() => {
-    const handleUnload = () => {
+    const persisted = loadPersistedState();
+    if (persisted) {
+      // BUG FIX 2 (preserved): restore endTime on mount if we were running
+      // when the page was left. Without the anchor, re-mounting (e.g.
+      // navigating back) would re-anchor the interval from the already-
+      // stale secondsLeft value. Set it BEFORE setIsRunning so the timer
+      // effect sees it when it re-runs.
+      if (persisted.isRunning && persisted.endTime) {
+        endTimeRef.current = persisted.endTime;
+      }
+      setPhase(persisted.phase);
+      setIsRunning(persisted.isRunning);
+      setSessionCount(persisted.sessionCount);
+      setSecondsLeft(persisted.secondsLeft);
+      secondsLeftRef.current = persisted.secondsLeft;
+    }
+    hydratedRef.current = true;
+  }, []);
+
+  // BUG FIX 4: The old visibilitychange "handleUnload" listener captured
+  // `isRunning` by closure, so when it fired it always saved the value of
+  // isRunning from the time the effect ran — not the current value. We use
+  // a ref to get the live value.
+  const isRunningRef = useRef(isRunning);
+  isRunningRef.current = isRunning;
+
+  useEffect(() => {
+    const handleHide = () => {
       saveState({
         phase: phaseRef.current,
         secondsLeft: secondsLeftRef.current,
         sessionCount: sessionCountRef.current,
-        isRunning,
-        savedAt: Date.now(),
+        isRunning: isRunningRef.current,
+        endTime: endTimeRef.current,
       });
     };
-    window.addEventListener("beforeunload", handleUnload);
-    document.addEventListener("visibilitychange", handleUnload);
+    window.addEventListener("beforeunload", handleHide);
+    // Save when tab is hidden — but do NOT clear endTimeRef here.
+    document.addEventListener("visibilitychange", handleHide);
     return () => {
-      window.removeEventListener("beforeunload", handleUnload);
-      document.removeEventListener("visibilitychange", handleUnload);
-      handleUnload();
+      window.removeEventListener("beforeunload", handleHide);
+      document.removeEventListener("visibilitychange", handleHide);
+      handleHide();
     };
-  }, [isRunning]);
+  }, []); // ← empty deps: this effect must never re-register (old code re-registered on every isRunning change, leaving stale listeners alive)
 
-  // Re-sync display immediately when the tab becomes visible again
+  // Re-sync display when the tab becomes visible again
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && endTimeRef.current !== null) {
@@ -162,7 +217,6 @@ export function usePomodoro({
 
   const advance = useCallback((isSkip: boolean) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    // Clear the wall-clock anchor whenever a phase ends
     endTimeRef.current = null;
     setIsRunning(false);
 
@@ -207,26 +261,30 @@ export function usePomodoro({
     }
   }, [onSessionComplete, playSound, sendNotification]);
 
-  // ── Core timer — wall-clock based ──────────────────────────────────────
+  // ── Core timer — wall-clock based ──────────────────────────────────────────
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      // When paused, clear the anchor so it re-anchors from the current
-      // secondsLeft when the user resumes.
-      endTimeRef.current = null;
+      // Only clear anchor if we're genuinely pausing, not on initial mount
+      // when we might have a restored endTime from persisted state.
+      // We detect "pause" by checking if endTimeRef is set and isRunning just turned false.
+      // The reset() and advance() functions already clear endTimeRef themselves,
+      // so we only need to clear it here when the user hits pause.
+      // BUG FIX 5: Do NOT clear endTimeRef here unconditionally — that was
+      // wiping the restored anchor on every mount when isRunning=false.
       return;
     }
 
-    // Anchor end time from the current secondsLeft at the moment we start/resume.
-    // This is set once here and never mutated by the tick callback.
-    endTimeRef.current = Date.now() + secondsLeftRef.current * 1000;
+    // If we have a valid future endTime (restored from persisted state),
+    // keep it. Otherwise anchor from current secondsLeft.
+    if (!endTimeRef.current || endTimeRef.current <= Date.now()) {
+      endTimeRef.current = Date.now() + secondsLeftRef.current * 1000;
+    }
 
-    // Poll at 500 ms so we're accurate to <1 s even if a tick is delayed.
     intervalRef.current = setInterval(() => {
       const remaining = Math.round((endTimeRef.current! - Date.now()) / 1000);
 
       if (remaining <= 0) {
-        // Accumulate any last partial second for work phases
         if (phaseRef.current === "work") {
           workSecondsElapsedRef.current = settingsRef.current.workMinutes * 60;
         }
@@ -236,7 +294,6 @@ export function usePomodoro({
         return;
       }
 
-      // Track elapsed work time accurately from the anchor
       if (phaseRef.current === "work") {
         const totalWork = settingsRef.current.workMinutes * 60;
         workSecondsElapsedRef.current = totalWork - remaining;
@@ -251,9 +308,6 @@ export function usePomodoro({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, advance]);
-  // Note: secondsLeft is intentionally NOT in the dep array — we read it
-  // via secondsLeftRef.current above to avoid resetting the interval on
-  // every tick.
 
   const start = useCallback(() => {
     requestNotificationPermission();
@@ -261,8 +315,15 @@ export function usePomodoro({
   }, [requestNotificationPermission]);
 
   const pause = useCallback(() => {
+    // Capture remaining time before clearing the anchor
+    if (endTimeRef.current) {
+      const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
+      const clamped = Math.max(0, remaining);
+      setSecondsLeft(clamped);
+      secondsLeftRef.current = clamped;
+    }
+    endTimeRef.current = null; // Clear anchor on explicit pause
     setIsRunning(false);
-    // endTimeRef is cleared inside the isRunning effect above
   }, []);
 
   const reset = useCallback(() => {

@@ -11,13 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Play, Pause, RotateCcw, SkipForward, Settings,
-  Coffee, Brain, Clock, CheckCircle2, Zap, X,
+  Coffee, Brain, Clock, CheckCircle2, Zap, X, Target, Star, BarChart2,
 } from "lucide-react";
 import { cn, formatMinutes } from "@/lib/utils";
 import type { PomodoroPhase, PomodoroSettings } from "@/types";
 
 const PHASE_COLORS: Record<PomodoroPhase, string> = {
-  work: "#00b7ff", break: "#4ECDC4", longBreak: "#FF6B6B",
+  work: "primary", break: "success", longBreak: "destructive",
 };
 
 const LS_KEY = "studyflow:pomodoro-settings";
@@ -90,7 +90,7 @@ export default function PomodoroPage() {
     setSessionsBeforeLongBreak(pendingSessions); setAutoStartBreak(pendingAutoBreak); setAutoStartWork(pendingAutoWork);
     saveSettings({ workMinutes: pendingWork, breakMinutes: pendingBreak, longBreakMinutes: pendingLongBreak, sessionsBeforeLongBreak: pendingSessions, autoStartBreak: pendingAutoBreak, autoStartWork: pendingAutoWork });
     setShowSettings(false);
-    toast({ title: "Settings applied ✓" });
+    toast({ title: "Settings applied" });
   };
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function PomodoroPage() {
     // ── Browser notification (works even when signed out) ──────────────────
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
       try {
-        new Notification("Focus session complete! 🎉", {
+        new Notification("Focus session complete!", {
           body: `${durationMinutes} min logged. Time for a break!`,
           icon: "/favicon.ico",
         });
@@ -145,7 +145,7 @@ export default function PomodoroPage() {
     const { leveledUp, newLevel } = await awardXP(userId, 25, "Completed Pomodoro session", "pomodoro");
     await updateStreak(userId);
     await loadHistory(supabase, userId);
-    toast({ title: `Session saved! +25 XP 🎉`, description: leveledUp ? `You reached Level ${newLevel}! 🚀` : `${durationMinutes} min logged. Keep going!` });
+    toast({ title: `Session saved! +25 XP`, description: leveledUp ? `You reached Level ${newLevel}!` : `${durationMinutes} min logged. Keep going!` });
   };
 
   const { phase, isRunning, formattedTime, progress, sessionCount, start, pause, reset, skipPhase, setPhase } =
@@ -190,7 +190,7 @@ export default function PomodoroPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-black text-2xl" dir={isRTL ? "rtl" : "ltr"}>{t("pom_title")}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight" dir={isRTL ? "rtl" : "ltr"}>{t("pom_title")}</h1>
           <p className="text-muted-foreground text-sm mt-1" dir={isRTL ? "rtl" : "ltr"}>{t("pom_subtitle")}</p>
         </div>
         <Button variant="outline" size="sm" onClick={openSettings}>
@@ -205,7 +205,7 @@ export default function PomodoroPage() {
               {(["work", "break", "longBreak"] as PomodoroPhase[]).map((p) => (
                 <button key={p} onClick={() => setPhase(p)}
                   className={cn("flex-1 py-3 text-sm font-display font-semibold transition-all", phase === p ? "border-b-2 text-foreground" : "text-muted-foreground hover:text-foreground")}
-                  style={{ borderColor: phase === p ? phaseColor : "transparent" }}>
+                  style={{ borderColor: phase === p ? `hsl(var(--${phaseColor}))` : "transparent" }}>
                   {p === "work" ? t("pom_focus") : p === "break" ? t("pom_short_break") : t("pom_long_break")}
                 </button>
               ))}
@@ -214,9 +214,9 @@ export default function PomodoroPage() {
             <CardContent className="p-8 flex flex-col items-center gap-8">
               <div className="flex items-center gap-2">
                 {phase === "work"
-                  ? <Brain className="w-5 h-5" style={{ color: phaseColor }} />
-                  : <Coffee className="w-5 h-5" style={{ color: phaseColor }} />}
-                <Badge style={{ background: `${phaseColor}20`, color: phaseColor, borderColor: `${phaseColor}40` }} className="border">
+                  ? <Brain className="w-5 h-5" style={{ color: `hsl(var(--${phaseColor}))` }} />
+                  : <Coffee className="w-5 h-5" style={{ color: `hsl(var(--${phaseColor}))` }} />}
+                <Badge style={{ background: `hsl(var(--${phaseColor}) / 0.1)`, color: `hsl(var(--${phaseColor}))`, borderColor: `hsl(var(--${phaseColor}) / 0.3)` }} className="border">
                   {PHASE_LABELS[phase]}
                 </Badge>
               </div>
@@ -224,18 +224,13 @@ export default function PomodoroPage() {
               {/* Timer ring */}
               <div className="relative">
                 <svg width="220" height="220" viewBox="0 0 220 220">
-                  {isRunning && (
-                    <circle cx="110" cy="110" r={R + 8} fill="none" stroke={phaseColor} strokeWidth="1" opacity="0.2"
-                      style={{ animation: "pulse-ring 2s ease-out infinite", transformOrigin: "50% 50%" }} />
-                  )}
                   <circle cx="110" cy="110" r={R} fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-                  <circle cx="110" cy="110" r={R} fill="none" stroke={phaseColor} strokeWidth="8" strokeLinecap="round"
+                  <circle cx="110" cy="110" r={R} fill="none" stroke="hsl(var(--${phaseColor}))" strokeWidth="8" strokeLinecap="round"
                     strokeDasharray={CIRC} strokeDashoffset={strokeDash}
-                    className="timer-ring transition-all duration-1000"
-                    style={{ filter: `drop-shadow(0 0 8px ${phaseColor}60)` }} />
+                    className="timer-ring transition-all duration-1000" />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="font-mono font-bold text-5xl tracking-tight">{formattedTime}</span>
+                  <span className="font-mono text-5xl font-semibold tracking-tight">{formattedTime}</span>
                   <span className="text-xs text-muted-foreground mt-1">{t("pom_session")}{sessionCount + 1}</span>
                 </div>
               </div>
@@ -243,7 +238,7 @@ export default function PomodoroPage() {
               {subjects.length > 0 && (
                 <div className="w-full max-w-xs">
                   <select value={subjectId ?? ""} onChange={(e) => setSubjectId(e.target.value || null)}
-                    className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime/50">
+                    className="w-full rounded-md border border-input bg-transparent px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50">
                     <option value="">{t("pom_no_subject")}</option>
                     {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -262,15 +257,12 @@ export default function PomodoroPage() {
                 {/* Play/Pause button — explicit size, no Button component */}
                 <button
                   onClick={handleStartPause}
-                  className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95"
-                  style={{
-                    background: phaseColor,
-                    boxShadow: `0 0 30px ${phaseColor}50`,
-                  }}
+                  className="w-20 h-20 rounded-full flex items-center justify-center transition-transform active:scale-95"
+                  style={{ background: `hsl(var(--${phaseColor}))` }}
                 >
                   {isRunning
-                    ? <Pause className="w-8 h-8 text-[#0D0D18]" />
-                    : <Play className="w-8 h-8 text-[#0D0D18] translate-x-0.5" />
+                    ? <Pause className="w-8 h-8 text-primary-foreground" />
+                    : <Play className="w-8 h-8 text-primary-foreground translate-x-0.5" />
                   }
                 </button>
 
@@ -285,7 +277,7 @@ export default function PomodoroPage() {
               <div className="w-full max-w-xs">
                 <input type="text" placeholder={t("pom_working_on")} value={sessionNotes}
                   onChange={(e) => setSessionNotes(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-transparent px-4 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-lime/50"
+                  className="w-full rounded-md border border-input bg-transparent px-4 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
                   dir={isRTL ? "rtl" : "ltr"} />
               </div>
             </CardContent>
@@ -298,14 +290,14 @@ export default function PomodoroPage() {
               <p className="font-display font-semibold text-sm" dir={isRTL ? "rtl" : "ltr"}>{t("pom_todays_progress")}</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: t("pom_sessions"), value: sessionHistory.filter((s) => new Date(s.started_at).toDateString() === new Date().toDateString()).length, icon: "⚡" },
-                  { label: t("pom_focused"), value: formatMinutes(todayMinutes), icon: "🎯" },
-                  { label: t("pom_xp_earned"), value: `+${sessionHistory.filter((s) => new Date(s.started_at).toDateString() === new Date().toDateString()).length * 25}`, icon: "💫" },
-                  { label: t("pom_all_time"), value: sessionHistory.length, icon: "📊" },
+                  { label: t("pom_sessions"), value: sessionHistory.filter((s) => new Date(s.started_at).toDateString() === new Date().toDateString()).length, icon: <Zap className="w-4 h-4 text-primary" /> },
+                  { label: t("pom_focused"), value: formatMinutes(todayMinutes), icon: <Target className="w-4 h-4 text-primary" /> },
+                  { label: t("pom_xp_earned"), value: `+${sessionHistory.filter((s) => new Date(s.started_at).toDateString() === new Date().toDateString()).length * 25}`, icon: <Star className="w-4 h-4 text-primary" /> },
+                  { label: t("pom_all_time"), value: sessionHistory.length, icon: <BarChart2 className="w-4 h-4 text-primary" /> },
                 ].map((stat) => (
-                  <div key={stat.label} className="rounded-xl bg-muted p-3">
-                    <span className="text-xl">{stat.icon}</span>
-                    <p className="font-display font-bold text-lg mt-1">{stat.value}</p>
+                  <div key={stat.label} className="rounded-md bg-muted p-3">
+                    <div className="mb-1 grid h-7 w-7 place-items-center rounded-md bg-card">{stat.icon}</div>
+                    <p className="mt-1 font-display text-lg font-semibold tracking-tight">{stat.value}</p>
                     <p className="text-xs text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>{stat.label}</p>
                   </div>
                 ))}
@@ -316,7 +308,7 @@ export default function PomodoroPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2" dir={isRTL ? "rtl" : "ltr"}>
-                <Clock className="w-4 h-4" />{t("pom_recent_sessions")}
+                <Clock className="w-4 h-4 text-primary" />{t("pom_recent_sessions")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -324,8 +316,8 @@ export default function PomodoroPage() {
                 <p className="text-xs text-muted-foreground text-center py-4" dir={isRTL ? "rtl" : "ltr"}>{t("pom_no_sessions")}</p>
               ) : (
                 sessionHistory.slice(0, 6).map((session) => (
-                  <div key={session.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  <div key={session.id} className="flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-muted/50">
+                    <div className="h-8 w-8 rounded-md flex items-center justify-center"
                       style={{ background: session.subject?.color ? `${session.subject.color}20` : "hsl(var(--muted))" }}>
                       <CheckCircle2 className="w-4 h-4" style={{ color: session.subject?.color ?? "hsl(var(--muted-foreground))" }} />
                     </div>
@@ -334,8 +326,8 @@ export default function PomodoroPage() {
                       <p className="text-xs text-muted-foreground">{new Date(session.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-bold text-lime">{session.duration_minutes}{t("pom_min")}</p>
-                      <p className="text-xs text-muted-foreground">+25 XP</p>
+                      <p className="font-mono text-xs text-muted-foreground">{session.duration_minutes}{t("pom_min")}</p>
+                      <p className="font-mono text-xs text-muted-foreground">+25 XP</p>
                     </div>
                   </div>
                 ))
@@ -343,12 +335,12 @@ export default function PomodoroPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-lime/20 bg-lime/5">
+          <Card className="border-border/70 bg-muted/40">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <Zap className="w-4 h-4 text-lime mt-0.5 shrink-0" />
+                <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-lime">{t("pom_pro_tip")}</p>
+                  <p className="text-sm font-semibold text-muted-foreground">{t("pom_pro_tip")}</p>
                   <p className="text-xs text-muted-foreground mt-1" dir={isRTL ? "rtl" : "ltr"}>{t("pom_tip_text")}</p>
                 </div>
               </div>
@@ -359,16 +351,15 @@ export default function PomodoroPage() {
 
       {/* Settings modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(8,8,15,0.85)", backdropFilter: "blur(6px)" }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
           onClick={() => setShowSettings(false)}>
-          <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-lg border border-border bg-card" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-lime" />
-                <h2 className="font-display font-bold text-base">{t("pom_settings_title")}</h2>
+                <Settings className="w-4 h-4 text-primary" />
+                <h2 className="font-display text-base font-semibold tracking-tight">{t("pom_settings_title")}</h2>
               </div>
-              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -378,7 +369,7 @@ export default function PomodoroPage() {
                   <div key={label} className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium" dir={isRTL ? "rtl" : "ltr"}>{label}</span>
-                      <span className="text-lime font-bold">{value} {unit === "sessions" ? (value === 1 ? t("pom_session_label") : t("pom_sessions_label")) : t("pom_min")}</span>
+                      <span className="font-mono text-muted-foreground">{value} {unit === "sessions" ? (value === 1 ? t("pom_session_label") : t("pom_sessions_label")) : t("pom_min")}</span>
                     </div>
                     <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => setter(Number(e.target.value))} className="w-full" />
                     <div className="flex justify-between text-xs text-muted-foreground"><span>{min}</span><span>{max}</span></div>
@@ -390,9 +381,9 @@ export default function PomodoroPage() {
                   { label: t("pom_auto_breaks"), value: pendingAutoBreak, setter: setPendingAutoBreak },
                   { label: t("pom_auto_focus"), value: pendingAutoWork, setter: setPendingAutoWork },
                 ].map(({ label, value, setter }) => (
-                  <label key={label} className="flex items-center gap-3 p-3 rounded-xl bg-muted cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => setter(!value)}>
-                    <div className={cn("relative w-10 h-5 rounded-full transition-colors shrink-0", value ? "bg-lime" : "bg-muted-foreground/30")}>
-                      <div className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform", value ? "translate-x-5" : "translate-x-0.5")} />
+                  <label key={label} className="flex cursor-pointer items-center gap-3 rounded-md bg-muted p-3 transition-colors hover:bg-muted/80" onClick={() => setter(!value)}>
+                    <div className={cn("relative h-5 w-10 shrink-0 rounded-full transition-colors", value ? "bg-primary" : "bg-foreground/20")}>
+                      <div className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-primary-foreground transition-transform", value ? "translate-x-5" : "translate-x-0.5")} />
                     </div>
                     <span className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{label}</span>
                   </label>

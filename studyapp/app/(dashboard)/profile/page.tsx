@@ -14,7 +14,7 @@ import type { Profile, UserAchievement } from "@/types";
 import {
   Edit3, Save, Trophy, Zap, TrendingUp, Loader2, Camera,
   Code2, ExternalLink, FileText, BookOpen, FlaskConical,
-  Presentation, GraduationCap, Eye, ChevronDown, ChevronUp,
+  Presentation, GraduationCap, Eye, ChevronDown, ChevronUp, Flame, Calendar
 } from "lucide-react";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subDays } from "date-fns";
@@ -25,10 +25,9 @@ function DevBadge() {
   return (
     <div
       title="App Developer"
-      className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full border-2 border-card flex items-center justify-center shadow-lg z-10"
-      style={{ background: "linear-gradient(135deg, #00b7ff, #0055aa)" }}
+      className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full border-2 border-card bg-primary flex items-center justify-center z-10"
     >
-      <Code2 className="w-3.5 h-3.5 text-white" />
+      <Code2 className="w-3.5 h-3.5 text-primary-foreground" />
     </div>
   );
 }
@@ -39,12 +38,12 @@ interface ShowcaseItem {
   external_url: string | null; is_public: boolean; created_at: string;
 }
 
-const TYPE_CONFIG: Record<string, { labelKey: string; icon: React.ElementType; color: string }> = {
-  paper: { labelKey: "paper", icon: FileText, color: "#00b7ff" },
-  project: { labelKey: "project", icon: BookOpen, color: "#4ECDC4" },
-  research: { labelKey: "research", icon: FlaskConical, color: "#BB8FCE" },
-  presentation: { labelKey: "presentation", icon: Presentation, color: "#FF9F43" },
-  other: { labelKey: "other", icon: GraduationCap, color: "#96CEB4" },
+const TYPE_CONFIG: Record<string, { labelKey: string; icon: React.ElementType }> = {
+  paper: { labelKey: "paper", icon: FileText },
+  project: { labelKey: "project", icon: BookOpen },
+  research: { labelKey: "research", icon: FlaskConical },
+  presentation: { labelKey: "presentation", icon: Presentation },
+  other: { labelKey: "other", icon: GraduationCap },
 };
 
 function PdfViewer({ url, title, t }: { url: string; title: string; t: (k: any) => string }) {
@@ -53,19 +52,19 @@ function PdfViewer({ url, title, t }: { url: string; title: string; t: (k: any) 
     <div className="mt-1">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs font-semibold text-[#00b7ff] hover:underline transition"
+        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline transition"
       >
         <Eye className="w-3.5 h-3.5" />
         {expanded ? t("showcase_hide_pdf") : t("showcase_view_pdf")}
         {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
       {expanded && (
-        <div className="mt-2 rounded-xl overflow-hidden border border-border">
+        <div className="mt-2 rounded-md overflow-hidden border border-border">
           <iframe src={`${url}#toolbar=0&navpanes=0`} title={title} className="w-full"
-            style={{ height: "420px", background: "#1a1a2e" }} />
+            style={{ height: "420px", background: "hsl(var(--muted))" }} />
           <div className="flex justify-end px-3 py-2 bg-muted border-t border-border">
             <a href={url} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-[#00b7ff] flex items-center gap-1 hover:underline">
+              className="text-xs text-primary flex items-center gap-1 hover:underline">
               <ExternalLink className="w-3 h-3" /> {t("showcase_open_tab")}
             </a>
           </div>
@@ -167,7 +166,7 @@ export default function ProfilePage() {
         .update({ avatar_url: avatarUrl }).eq("id", profile.id);
       if (updateError) throw updateError;
       setProfile((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : null));
-      toast({ title: "Profile photo updated! 📸" });
+      toast({ title: "Profile photo updated! " });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
@@ -192,22 +191,21 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* ── Profile header card ─────────────────────────────────────────── */}
       <Card className="overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-[#0A0A14] via-[#1a1a30] to-[#0A0A14] relative">
-          <div className="absolute inset-0 bg-grid opacity-30" />
+        <div className="h-24 bg-card border-b border-border relative">
           <div className="absolute -bottom-8 left-6">
             <div className="relative group">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.username}
-                  className="w-24 h-24 rounded-2xl border-4 border-card object-cover" />
+                  className="w-24 h-24 rounded-full border-4 border-card object-cover" />
               ) : (
-                <div className="w-24 h-24 rounded-2xl border-4 border-card flex items-center justify-center font-display font-black text-3xl"
-                  style={{ background: "linear-gradient(135deg, #00b7ff, #0088cc)", color: "#0D0D18" }}>
+                <div className="w-24 h-24 rounded-full border-4 border-card bg-primary text-primary-foreground flex items-center justify-center font-display font-semibold text-3xl"
+                >
                   {profile.username.slice(0, 2).toUpperCase()}
                 </div>
               )}
               {isDeveloper && <DevBadge />}
               <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
-                className="absolute inset-0 rounded-2xl flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
+                className="absolute inset-0 rounded-full flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
                 {uploadingAvatar
                   ? <Loader2 className="w-6 h-6 text-white animate-spin" />
                   : <Camera className="w-6 h-6 text-white" />}
@@ -225,13 +223,12 @@ export default function ProfilePage() {
                   <Input value={editForm.full_name}
                     onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
                     placeholder={t("profile_full_name_ph")}
-                    className="font-display font-bold text-xl h-auto py-1" />
+                    className="font-display font-semibold text-xl h-auto py-1" />
                 ) : (
-                  <h1 className="font-display font-black text-xl">{profile.full_name || profile.username}</h1>
+                  <h1 className="font-display font-semibold text-xl">{profile.full_name || profile.username}</h1>
                 )}
                 {isDeveloper && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
-                    style={{ background: "rgba(0,183,255,0.1)", borderColor: "rgba(0,183,255,0.3)", color: "#00b7ff" }}>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-primary/30 bg-primary/10 text-primary">
                     <Code2 className="w-3 h-3" /> {t("profile_app_dev")}
                   </span>
                 )}
@@ -242,7 +239,7 @@ export default function ProfilePage() {
                   <span className="text-muted-foreground text-sm">@</span>
                   <input value={editForm.username}
                     onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
-                    className="text-sm bg-transparent border-b border-border focus:outline-none focus:border-[#00b7ff] w-32"
+                    className="text-sm bg-transparent border-b border-border focus:outline-none focus:border-primary w-32"
                     maxLength={20} minLength={3} />
                 </div>
               ) : (
@@ -253,7 +250,7 @@ export default function ProfilePage() {
                 <textarea value={editForm.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                   placeholder={t("profile_bio_ph")}
-                  className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm mt-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#00b7ff]/50" />
+                  className="w-full rounded-md border border-border bg-muted px-4 py-2 text-sm mt-2 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-primary/50" />
               ) : (
                 profile.bio && <p className="text-sm text-muted-foreground mt-1">{profile.bio}</p>
               )}
@@ -279,30 +276,30 @@ export default function ProfilePage() {
           <div className="mt-6 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="level-badge">{levelInfo.level}</div>
-                <span className="font-display font-semibold">{t("profile_level")} {levelInfo.level}</span>
+                <Badge variant="secondary">Lv.{levelInfo.level}</Badge>
+                <span className="font-semibold text-sm text-muted-foreground">{t("profile_level")} {levelInfo.level}</span>
               </div>
               <span className="text-sm text-muted-foreground">
                 {levelInfo.currentXp} / {levelInfo.xpForNextLevel} XP
               </span>
             </div>
-            <Progress value={levelInfo.xpProgress} className="h-3" />
+            <Progress value={levelInfo.xpProgress} className="h-1.5" />
           </div>
 
           {/* Quick stats */}
           <div className="grid grid-cols-3 gap-3 mt-6">
             {[
-              { label: t("profile_streak"), value: profile.streak_current, suffix: t("profile_days"), icon: "🔥" },
-              { label: t("profile_total_xp"), value: profile.xp.toLocaleString(), suffix: t("profile_pts"), icon: "⚡" },
+              { label: t("profile_streak"), value: profile.streak_current, suffix: t("profile_days"), icon: <Flame className="w-4 h-4 text-primary" /> },
+              { label: t("profile_total_xp"), value: profile.xp.toLocaleString(), suffix: t("profile_pts"), icon: <Zap className="w-4 h-4 text-primary" /> },
               {
                 label: t("profile_member_since"),
                 value: new Date(profile.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }),
-                suffix: "", icon: "📅",
+                suffix: "", icon: <Calendar className="w-4 h-4 text-primary" />,
               },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl bg-muted p-3 text-center">
-                <span className="text-xl">{s.icon}</span>
-                <p className="font-display font-bold mt-1">{s.value} {s.suffix}</p>
+              <div key={s.label} className="rounded-md bg-muted p-3 text-center">
+                <div className="w-7 h-7 flex items-center justify-center mx-auto mb-1">{s.icon}</div>
+                <p className="font-semibold mt-1">{s.value} {s.suffix}</p>
                 <p className="text-xs text-muted-foreground">{s.label}</p>
               </div>
             ))}
@@ -313,15 +310,15 @@ export default function ProfilePage() {
       {/* ── Stat cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4">
         {[
-          { label: t("profile_total_xp"), value: profile.xp.toLocaleString(), icon: Zap, color: "text-[#00b7ff]" },
-          { label: t("profile_current_level"), value: levelInfo.level, icon: TrendingUp, color: "text-blue-400" },
+          { label: t("profile_total_xp"), value: profile.xp.toLocaleString(), icon: Zap, color: "text-primary" },
+          { label: t("profile_current_level"), value: levelInfo.level, icon: TrendingUp, color: "text-primary" },
         ].map((stat) => (
-          <Card key={stat.label} className="card-hover">
+          <Card key={stat.label}>
             <CardContent className="p-4">
-              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center mb-2">
+              <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center mb-2">
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
               </div>
-              <p className={`font-display font-black text-xl ${stat.color}`}>{stat.value}</p>
+              <p className={`font-semibold text-xl ${stat.color}`}>{stat.value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
             </CardContent>
           </Card>
@@ -332,7 +329,7 @@ export default function ProfilePage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[#00b7ff]" /> {t("profile_xp_week")}
+            <Zap className="w-4 h-4 text-primary" /> {t("profile_xp_week")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -341,8 +338,8 @@ export default function ProfilePage() {
               <AreaChart data={xpHistory}>
                 <defs>
                   <linearGradient id="xpGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00b7ff" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#00b7ff" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
@@ -350,7 +347,7 @@ export default function ProfilePage() {
                 <Tooltip
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: "12px" }}
                   formatter={(v) => [`+${v} XP`, t("profile_earned")]} />
-                <Area type="monotone" dataKey="xp" stroke="#00b7ff" strokeWidth={2} fill="url(#xpGradient)" />
+                <Area type="monotone" dataKey="xp" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#xpGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -362,7 +359,7 @@ export default function ProfilePage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-[#00b7ff]" /> {t("profile_showcase")}
+              <GraduationCap className="w-4 h-4 text-primary" /> {t("profile_showcase")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -372,14 +369,13 @@ export default function ProfilePage() {
                 const Icon = config.icon;
                 return (
                   <div key={item.id}
-                    className="rounded-xl border border-border bg-muted/30 p-4 space-y-2 hover:bg-muted/50 transition-colors">
+                    className="rounded-md border border-border bg-muted/30 p-4 space-y-2 hover:bg-muted/50 transition-colors">
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `${config.color}20` }}>
-                        <Icon className="w-4 h-4" style={{ color: config.color }} />
+                      <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-display font-bold text-sm truncate">{item.title}</p>
+                        <p className="font-semibold text-sm truncate">{item.title}</p>
                         {item.subject && <p className="text-xs text-muted-foreground">{item.subject}</p>}
                       </div>
                     </div>
@@ -387,12 +383,12 @@ export default function ProfilePage() {
                       <p className="text-xs text-muted-foreground line-clamp-2 pl-12">{item.description}</p>
                     )}
                     <div className="flex items-center gap-2 pl-12 flex-wrap">
-                      <Badge className="text-[11px]" style={{ background: `${config.color}15`, color: config.color, border: `1px solid ${config.color}30` }}>
+                      <Badge variant="secondary" className="text-[11px]">
                         {config.labelKey}
                       </Badge>
                       {item.external_url && (
                         <a href={item.external_url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-[#00b7ff] hover:underline">
+                          className="flex items-center gap-1 text-xs text-primary hover:underline">
                           <ExternalLink className="w-3 h-3" /> {t("showcase_view_link")}
                         </a>
                       )}
@@ -415,22 +411,22 @@ export default function ProfilePage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-[#00b7ff]" /> {t("profile_achievements")}
+              <Trophy className="w-4 h-4 text-primary" /> {t("profile_achievements")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid sm:grid-cols-2 gap-3">
               {achievements.slice(0, 6).map((ua) => (
-                <div key={ua.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-                  <div className="w-10 h-10 rounded-xl bg-[#00b7ff]/10 flex items-center justify-center text-xl shrink-0">
-                    🏆
+                <div key={ua.id} className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
+                  <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center text-xl shrink-0">
+
                   </div>
                   <div>
                     <p className="font-semibold text-sm">{ua.achievement?.name}</p>
                     <p className="text-xs text-muted-foreground">{ua.achievement?.description}</p>
                   </div>
                   <div className="ml-auto text-right shrink-0">
-                    <p className="text-xs font-bold text-[#00b7ff]">+{ua.achievement?.xp_reward} XP</p>
+                    <p className="text-xs font-semibold text-primary">+{ua.achievement?.xp_reward} XP</p>
                     <p className="text-[10px] text-muted-foreground">{t("profile_earned")}</p>
                   </div>
                 </div>
