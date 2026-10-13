@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter, IBM_Plex_Sans_Arabic, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { LanguageProvider } from "@/components/providers/LanguageContext";
+import { AppBanner } from "@/components/AppBanner";
+import HtmlAttributes from "@/components/HtmlAttributes";
 
-const syne = Syne({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-syne",
+  variable: "--font-inter",
   display: "swap",
 });
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
+const arabicFont = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: "400",
+  variable: "--font-arabic",
   display: "swap",
 });
 
@@ -47,11 +50,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#00b7ff" />
+        <meta name="theme-color" content="#09090B" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
-      <body className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`}>
+      <body className={`${inter.variable} ${jetbrains.variable}`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -59,6 +63,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
+            <HtmlAttributes />
+            <AppBanner />
             {children}
           </LanguageProvider>
         </ThemeProvider>

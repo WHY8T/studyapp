@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatMinutes } from "@/lib/utils";
 import { getLevelInfo, PRIORITY_CONFIG } from "@/types";
 import { useLanguage } from "@/components/providers/LanguageContext";
 import {
-  Timer, Flame, CheckSquare, Zap, BookOpen,
+  Timer, Flame, CheckSquare, BookOpen,
   ArrowRight, Trophy, TrendingUp, Clock, Target,
 } from "lucide-react";
 import {
@@ -53,32 +54,24 @@ export function DashboardClient({
       label: t("stat_studied_today"),
       value: formatMinutes(todayMinutes),
       icon: Clock,
-      color: "text-blue-400",
-      bg: "bg-blue-400/10",
       sub: `${formatMinutes(weekMinutes)} ${t("stat_this_week")}`,
     },
     {
       label: t("stat_pomodoros"),
       value: pomodorosToday,
       icon: Timer,
-      color: "text-lime",
-      bg: "bg-lime/10",
       sub: t("stat_sessions_today"),
     },
     {
       label: t("stat_tasks_done"),
       value: completedTodosToday,
       icon: CheckSquare,
-      color: "text-emerald-400",
-      bg: "bg-emerald-400/10",
       sub: `${pendingTodos.length} ${t("stat_remaining")}`,
     },
     {
       label: t("stat_study_streak"),
-      value: `${profile.streak_current}🔥`,
+      value: profile.streak_current,
       icon: Flame,
-      color: "text-orange-400",
-      bg: "bg-orange-400/10",
       sub: `${t("stat_best")}: ${profile.streak_longest} ${t("stat_days")}`,
     },
   ];
@@ -97,37 +90,37 @@ export function DashboardClient({
   return (
     <div className="space-y-6">
       {/* Top stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.label} className="card-hover">
+          <Card key={stat.label}>
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide" dir={isRTL ? "rtl" : "ltr"}>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>
                   {stat.label}
                 </p>
-                <div className={`p-2 rounded-lg ${stat.bg}`}>
-                  <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                  <stat.icon className="h-4 w-4 text-primary" />
                 </div>
               </div>
-              <p className="font-display font-black text-2xl">{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-1" dir={isRTL ? "rtl" : "ltr"}>{stat.sub}</p>
+              <p className="font-display text-2xl font-semibold tracking-tight">{stat.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>{stat.sub}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           {/* Study chart */}
           <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base" dir={isRTL ? "rtl" : "ltr"}>{t("dash_weekly_study")}</CardTitle>
-                <Badge variant="muted" className="text-xs">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {formatMinutes(weekMinutes)} {t("dash_total")}
-                </Badge>
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <CardTitle className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_weekly_study")}</CardTitle>
               </div>
+              <Badge variant="muted">
+                {formatMinutes(weekMinutes)} {t("dash_total")}
+              </Badge>
             </CardHeader>
             <CardContent>
               <div className="h-48">
@@ -135,18 +128,18 @@ export function DashboardClient({
                   <AreaChart data={localizedChartData}>
                     <defs>
                       <linearGradient id="studyGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00b7ff" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#00b7ff" stopOpacity={0} />
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
                     <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
                     <Tooltip
-                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: "12px" }}
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "12px" }}
                       formatter={(value) => [`${value} min`, t("dash_study_time")]}
                     />
-                    <Area type="monotone" dataKey="minutes" stroke="#00b7ff" strokeWidth={2} fill="url(#studyGradient)" />
+                    <Area type="monotone" dataKey="minutes" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#studyGradient)" dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -155,45 +148,40 @@ export function DashboardClient({
 
           {/* Today's tasks */}
           <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base" dir={isRTL ? "rtl" : "ltr"}>{t("dash_todays_tasks")}</CardTitle>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/todos">{t("dash_view_all")} <ArrowRight className="w-3 h-3" /></Link>
-                </Button>
-              </div>
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_todays_tasks")}</CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/todos">{t("dash_view_all")} <ArrowRight className="w-3 h-3" /></Link>
+              </Button>
             </CardHeader>
             <CardContent className="space-y-2">
               {pendingTodos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckSquare className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">{t("dash_all_done")}</p>
-                </div>
+                <EmptyState icon={CheckSquare} title={t("dash_all_done")} className="py-8" />
               ) : (
                 pendingTodos.map((todo) => {
                   const pConfig = PRIORITY_CONFIG[todo.priority];
                   return (
-                    <div key={todo.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors group">
-                      <div className="w-5 h-5 rounded-md border-2 border-border group-hover:border-lime transition-colors shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" dir={isRTL ? "rtl" : "ltr"}>{todo.title}</p>
+                    <div key={todo.id} className="flex items-center gap-3 rounded-md p-3 transition-colors hover:bg-muted/50">
+                      <div className="h-5 w-5 shrink-0 rounded-md border-2 border-border" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{todo.title}</p>
                         {todo.due_date && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {t("dash_due")} {new Date(todo.due_date).toLocaleDateString(
                               language === "ar" ? "ar-DZ" : language === "fr" ? "fr-FR" : "en-US"
                             )}
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {todo.subject && <div className="w-2 h-2 rounded-full" style={{ background: todo.subject.color }} />}
+                      <div className="flex shrink-0 items-center gap-2">
+                        {todo.subject && <div className="h-2 w-2 rounded-full" style={{ background: todo.subject.color }} />}
                         <span className={`text-xs font-medium ${pConfig.color}`}>{pConfig.label}</span>
                       </div>
                     </div>
                   );
                 })
               )}
-              <Button variant="outline" className="w-full mt-2" asChild>
+              <Button variant="outline" className="mt-2 w-full" asChild>
                 <Link href="/todos">
                   <Target className="w-4 h-4" />
                   {t("dash_manage_tasks")}
@@ -206,35 +194,27 @@ export function DashboardClient({
         {/* Right column */}
         <div className="space-y-6">
           {/* XP & Level */}
-          <Card className="overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-lime via-lime-400 to-lime-600" />
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_your_progress")}</CardTitle>
+              <Badge variant="secondary">{t("dash_level")} {levelInfo.level}</Badge>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-xs">
+                <span className="font-mono text-muted-foreground">{levelInfo.currentXp} XP</span>
+                <span className="text-muted-foreground">{levelInfo.xpForNextLevel} {t("dash_xp_needed")}</span>
+              </div>
+              <Progress value={levelInfo.xpProgress} className="h-1.5" />
+              <p className="text-center text-xs text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>
+                {levelInfo.xpProgress}% {t("dash_to_level")} {levelInfo.level + 1}
+              </p>
+              <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-3">
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_your_progress")}</p>
-                  <p className="font-display font-black text-xl mt-1" dir={isRTL ? "rtl" : "ltr"}>
-                    {t("dash_level")} {levelInfo.level}
-                  </p>
-                </div>
-                <div className="level-badge text-2xl w-14 h-14 text-xl">{levelInfo.level}</div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">{levelInfo.currentXp} XP</span>
-                  <span className="text-lime font-semibold">{levelInfo.xpForNextLevel} {t("dash_xp_needed")}</span>
-                </div>
-                <Progress value={levelInfo.xpProgress} className="h-2.5" />
-                <p className="text-xs text-center text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>
-                  {levelInfo.xpProgress}% {t("dash_to_level")} {levelInfo.level + 1}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg bg-muted p-3 text-center">
-                  <p className="font-display font-bold text-lg text-lime">{profile.xp.toLocaleString()}</p>
+                  <p className="font-display text-lg font-semibold tracking-tight">{profile.xp.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">{t("dash_total_xp")}</p>
                 </div>
-                <div className="rounded-lg bg-muted p-3 text-center">
-                  <p className="font-display font-bold text-lg">{formatMinutes(profile.total_study_minutes)}</p>
+                <div>
+                  <p className="font-display text-lg font-semibold tracking-tight">{formatMinutes(profile.total_study_minutes)}</p>
                   <p className="text-xs text-muted-foreground">{t("dash_studied")}</p>
                 </div>
               </div>
@@ -244,21 +224,23 @@ export function DashboardClient({
           {/* Quick actions */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base" dir={isRTL ? "rtl" : "ltr"}>{t("dash_quick_start")}</CardTitle>
+              <CardTitle className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_quick_start")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { href: "/pomodoro", label: t("dash_start_pomodoro"), icon: Timer, desc: t("dash_focus_session"), color: "bg-lime text-[#0D0D18]" },
-                { href: "/todos?new=true", label: t("dash_add_task"), icon: CheckSquare, desc: t("dash_track_work"), color: "bg-muted text-foreground" },
-                { href: "/quiz", label: t("dash_generate_quiz"), icon: BookOpen, desc: t("dash_from_pdf"), color: "bg-muted text-foreground" },
+                { href: "/pomodoro", label: t("dash_start_pomodoro"), icon: Timer, desc: t("dash_focus_session") },
+                { href: "/todos?new=true", label: t("dash_add_task"), icon: CheckSquare, desc: t("dash_track_work") },
+                { href: "/quiz", label: t("dash_generate_quiz"), icon: BookOpen, desc: t("dash_from_pdf") },
               ].map((item) => (
                 <Link key={item.href} href={item.href}
-                  className={`flex items-center gap-3 p-3 rounded-xl ${item.color} transition-all hover:opacity-90 hover:-translate-y-0.5`}
+                  className="flex items-center gap-3 rounded-md border border-border/70 p-3 transition-colors hover:bg-muted/50"
                 >
-                  <item.icon className="w-4 h-4 shrink-0" />
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                    <item.icon className="h-4 w-4 text-primary" />
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold" dir={isRTL ? "rtl" : "ltr"}>{item.label}</p>
-                    <p className="text-xs opacity-70" dir={isRTL ? "rtl" : "ltr"}>{item.desc}</p>
+                    <p className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{item.label}</p>
+                    <p className="text-xs text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>{item.desc}</p>
                   </div>
                 </Link>
               ))}
@@ -268,21 +250,21 @@ export function DashboardClient({
           {/* Recent achievements */}
           {recentAchievements.length > 0 && (
             <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base" dir={isRTL ? "rtl" : "ltr"}>{t("dash_recent_badges")}</CardTitle>
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href="/achievements"><ArrowRight className="w-3 h-3" /></Link>
-                  </Button>
-                </div>
+              <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_recent_badges")}</CardTitle>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/achievements"><ArrowRight className="w-3 h-3" /></Link>
+                </Button>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {recentAchievements.map((ua) => (
-                  <div key={ua.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                    <div className="w-8 h-8 rounded-lg bg-lime/20 flex items-center justify-center text-lg">🏆</div>
-                    <div>
-                      <p className="text-sm font-semibold">{ua.achievement?.name}</p>
-                      <p className="text-xs text-muted-foreground">+{ua.achievement?.xp_reward} XP</p>
+                  <div key={ua.id} className="flex items-center gap-3">
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                      <Trophy className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{ua.achievement?.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">+{ua.achievement?.xp_reward} XP</p>
                     </div>
                   </div>
                 ))}
@@ -294,7 +276,7 @@ export function DashboardClient({
           {subjects.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base" dir={isRTL ? "rtl" : "ltr"}>{t("dash_top_subjects")}</CardTitle>
+                <CardTitle className="text-sm font-medium" dir={isRTL ? "rtl" : "ltr"}>{t("dash_top_subjects")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {subjects.map((subject) => {
@@ -303,15 +285,12 @@ export function DashboardClient({
                     <div key={subject.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ background: subject.color }} />
+                          <div className="h-2 w-2 rounded-full" style={{ background: subject.color }} />
                           <span className="font-medium">{subject.name}</span>
                         </div>
-                        <span className="text-muted-foreground">{formatMinutes(subject.total_minutes)}</span>
+                        <span className="font-mono text-muted-foreground">{formatMinutes(subject.total_minutes)}</span>
                       </div>
-                      <Progress value={(subject.total_minutes / maxMinutes) * 100} className="h-1.5"
-                        indicatorClassName=""
-                        style={{ "--progress-color": subject.color } as React.CSSProperties}
-                      />
+                      <Progress value={(subject.total_minutes / maxMinutes) * 100} className="h-1.5" />
                     </div>
                   );
                 })}

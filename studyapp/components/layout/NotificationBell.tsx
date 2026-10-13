@@ -59,26 +59,26 @@ export function NotificationBell() {
             <button
                 ref={buttonRef}
                 onClick={() => setOpen((v) => !v)}
-                className="relative p-2 rounded-xl hover:bg-white/5 transition-all duration-200 group"
+                className="relative p-2 rounded-lg hover:bg-muted/5 transition-all duration-200 group"
                 aria-label="Notifications"
             >
                 <Bell
                     className={`w-5 h-5 transition-all duration-200 ${unreadCount > 0
-                            ? "text-[#00b7ff] drop-shadow-[0_0_8px_rgba(0,183,255,0.6)]"
-                            : "text-muted-foreground group-hover:text-foreground"
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground"
                         }`}
                 />
 
                 {/* Badge */}
                 {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold shadow-lg shadow-red-500/50 animate-bounce-once">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold animate-bounce-once">
                         {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                 )}
 
                 {/* Ping ring when new */}
                 {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-red-500 opacity-75 animate-ping" />
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-destructive opacity-75 animate-ping" />
                 )}
             </button>
 
@@ -86,16 +86,16 @@ export function NotificationBell() {
             {open && (
                 <div
                     ref={panelRef}
-                    className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 rounded-2xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden"
+                    className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 top-full mt-2 w-[calc(100vw-16px)] max-w-sm sm:w-96 z-50 rounded-lg border border-border/10 bg-card overflow-hidden"
                     style={{ animation: "slideDown 0.2s ease-out" }}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border/10">
                         <div className="flex items-center gap-2">
-                            <Bell className="w-4 h-4 text-[#00b7ff]" />
+                            <Bell className="w-4 h-4 text-primary" />
                             <span className="font-semibold text-sm text-foreground">Notifications</span>
                             {unreadCount > 0 && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-[#00b7ff]/20 text-[#00b7ff] text-xs font-medium">
+                                <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
                                     {unreadCount} new
                                 </span>
                             )}
@@ -103,7 +103,7 @@ export function NotificationBell() {
                         {unreadCount > 0 && (
                             <button
                                 onClick={markAllAsRead}
-                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-[#00b7ff] transition-colors"
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                             >
                                 <CheckCheck className="w-3.5 h-3.5" />
                                 Mark all read
@@ -116,7 +116,7 @@ export function NotificationBell() {
                         {loading ? (
                             <div className="flex flex-col gap-2 p-3">
                                 {[1, 2, 3].map((i) => (
-                                    <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />
+                                    <div key={i} className="h-16 rounded-lg bg-muted/5 animate-pulse" />
                                 ))}
                             </div>
                         ) : notifications.length === 0 ? (
@@ -130,9 +130,9 @@ export function NotificationBell() {
                                     <button
                                         key={notif.id}
                                         onClick={() => handleNotifClick(notif)}
-                                        className={`w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] ${notif.read
-                                                ? "border-transparent hover:bg-white/5"
-                                                : `${NOTIF_COLORS[notif.type]} hover:brightness-110`
+                                        className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] ${notif.read
+                                            ? "border-transparent hover:bg-muted/5"
+                                            : `${NOTIF_COLORS[notif.type]} hover:brightness-110`
                                             }`}
                                     >
                                         {/* Avatar or icon */}
@@ -144,12 +144,12 @@ export function NotificationBell() {
                                                         alt={notif.from_profile.full_name}
                                                         className="w-8 h-8 rounded-full object-cover"
                                                     />
-                                                    <span className="absolute -bottom-1 -right-1 w-4 h-4 flex items-center justify-center rounded-full bg-card border border-white/10">
+                                                    <span className="absolute -bottom-1 -right-1 w-4 h-4 flex items-center justify-center rounded-full bg-card border border-border/10">
                                                         {NOTIF_ICONS[notif.type]}
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                                                <div className="w-8 h-8 rounded-full bg-muted/10 flex items-center justify-center">
                                                     {NOTIF_ICONS[notif.type]}
                                                 </div>
                                             )}
@@ -166,7 +166,7 @@ export function NotificationBell() {
 
                                         {/* Unread dot */}
                                         {!notif.read && (
-                                            <div className="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-[#00b7ff] shadow-[0_0_6px_rgba(0,183,255,0.8)]" />
+                                            <div className="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-primary" />
                                         )}
                                     </button>
                                 ))}
@@ -176,10 +176,10 @@ export function NotificationBell() {
 
                     {/* Footer */}
                     {notifications.length > 0 && (
-                        <div className="border-t border-white/10 px-4 py-2.5">
+                        <div className="border-t border-border/10 px-4 py-2.5">
                             <button
                                 onClick={() => { router.push("/notifications"); setOpen(false); }}
-                                className="w-full text-xs text-center text-[#00b7ff] hover:text-[#33c4ff] transition-colors font-medium"
+                                className="w-full text-xs text-center text-primary hover:underline transition-colors font-medium"
                             >
                                 View all notifications →
                             </button>

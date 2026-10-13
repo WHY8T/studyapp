@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import FloatingChat from "@/components/chat/FloatingChat";
 import type { Profile } from "@/types";
 import FloatingPomodoro from "@/components/pomodoro/FloatingPomodoro";
+import { SessionKeeper } from "@/components/providers/SessionKeeper";
 
 export default async function DashboardLayout({
   children,
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
     .single();
   return (
     <DashboardShell profile={profile as Profile | null}>
+      <SessionKeeper />
       {children}
       <FloatingChat />
       <FloatingPomodoro />

@@ -239,26 +239,26 @@ export const RARITY_CONFIG: Record<
 > = {
   common: {
     label: "Common",
-    color: "text-zinc-400",
-    bg: "bg-zinc-800",
+    color: "text-muted-foreground",
+    bg: "bg-muted/50",
     glow: "",
   },
   rare: {
     label: "Rare",
-    color: "text-blue-400",
-    bg: "bg-blue-950",
-    glow: "shadow-blue-500/20",
+    color: "text-primary",
+    bg: "bg-primary/10",
+    glow: "",
   },
   epic: {
     label: "Epic",
-    color: "text-purple-400",
-    bg: "bg-purple-950",
-    glow: "shadow-purple-500/20",
+    color: "text-success",
+    bg: "bg-success/10",
+    glow: "",
   },
   legendary: {
     label: "Legendary",
-    color: "text-lime",
-    bg: "bg-lime-950",
-    glow: "shadow-lime-400/30",
+    color: "text-warning",
+    bg: "bg-warning/10",
+    glow: "",
   },
 };

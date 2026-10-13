@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { getLevelInfo as getLevelInfoFn } from "@/types";
 import { formatMinutes } from "@/lib/utils";
@@ -22,6 +23,7 @@ import {
     TrendingUp,
     CheckSquare,
     Target,
+    Calendar,
 } from "lucide-react";
 
 export default function PublicProfilePage() {
@@ -110,7 +112,7 @@ export default function PublicProfilePage() {
         if (!error) {
             setFriendStatus("pending");
             setFriendshipId(data.id);
-            toast({ title: "Friend request sent! 👋" });
+            toast({ title: "Friend request sent! " });
         }
     };
 
@@ -137,12 +139,12 @@ export default function PublicProfilePage() {
     const isOwnProfile = myUserId === profile.id;
 
     const stats = [
-        { label: "Total XP", value: profile.xp.toLocaleString(), icon: Zap, color: "text-lime" },
-        { label: "Level", value: levelInfo.level, icon: TrendingUp, color: "text-blue-400" },
-        { label: "Study Time", value: formatMinutes(profile.total_study_minutes), icon: Clock, color: "text-purple-400" },
-        { label: "Best Streak", value: `${profile.streak_longest}d`, icon: Flame, color: "text-orange-400" },
-        { label: "Tasks Done", value: totalTodos, icon: CheckSquare, color: "text-emerald-400" },
-        { label: "Quizzes", value: totalQuizzes, icon: Target, color: "text-pink-400" },
+        { label: "Total XP", value: profile.xp.toLocaleString(), icon: Zap, color: "text-primary" },
+        { label: "Level", value: levelInfo.level, icon: TrendingUp, color: "text-primary" },
+        { label: "Study Time", value: formatMinutes(profile.total_study_minutes), icon: Clock, color: "text-primary" },
+        { label: "Best Streak", value: `${profile.streak_longest}d`, icon: Flame, color: "text-primary" },
+        { label: "Tasks Done", value: totalTodos, icon: CheckSquare, color: "text-primary" },
+        { label: "Quizzes", value: totalQuizzes, icon: Target, color: "text-primary" },
     ];
 
     return (
@@ -154,20 +156,17 @@ export default function PublicProfilePage() {
 
             {/* Profile card */}
             <Card className="overflow-hidden">
-                <div className="h-24 bg-gradient-to-r from-[#0A0A14] via-[#1a1a30] to-[#0A0A14] relative">
-                    <div className="absolute inset-0 bg-grid opacity-30" />
+                <div className="h-24 bg-card border-b border-border relative">
                     <div className="absolute -bottom-8 left-6">
                         {profile.avatar_url ? (
                             <img
                                 src={profile.avatar_url}
                                 alt={profile.username}
-                                className="w-20 h-20 rounded-2xl border-4 border-card object-cover"
+                                className="w-20 h-20 rounded-full border-4 border-card object-cover"
                             />
                         ) : (
                             <div
-                                className="w-20 h-20 rounded-2xl border-4 border-card flex items-center justify-center font-display font-black text-2xl"
-                                style={{ background: "linear-gradient(135deg, #00b7ff, #0088cc)", color: "#0D0D18" }}
-                            >
+                                className="w-20 h-20 rounded-full border-4 border-card bg-primary text-primary-foreground flex items-center justify-center font-display font-semibold text-2xl"                            >
                                 {profile.username.slice(0, 2).toUpperCase()}
                             </div>
                         )}
@@ -177,7 +176,7 @@ export default function PublicProfilePage() {
                 <CardContent className="pt-12 pb-6 px-6">
                     <div className="flex items-start justify-between">
                         <div>
-                            <h1 className="font-display font-black text-xl">
+                            <h1 className="font-display font-semibold text-xl">
                                 {profile.full_name || profile.username}
                             </h1>
                             <p className="text-muted-foreground text-sm">@{profile.username}</p>
@@ -209,26 +208,26 @@ export default function PublicProfilePage() {
                     <div className="mt-6 space-y-2">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <div className="level-badge">{levelInfo.level}</div>
-                                <span className="font-display font-semibold">Level {levelInfo.level}</span>
+                                <Badge variant="secondary">Lv.{levelInfo.level}</Badge>
+                                <span className="font-semibold text-sm text-muted-foreground">Level {levelInfo.level}</span>
                             </div>
                             <span className="text-sm text-muted-foreground">
                                 {levelInfo.currentXp} / {levelInfo.xpForNextLevel} XP
                             </span>
                         </div>
-                        <Progress value={levelInfo.xpProgress} className="h-3" />
+                        <Progress value={levelInfo.xpProgress} className="h-1.5" />
                     </div>
 
                     {/* Quick stats */}
                     <div className="grid grid-cols-3 gap-3 mt-6">
                         {[
-                            { label: "Streak", value: profile.streak_current, suffix: "days", icon: "🔥" },
-                            { label: "Total XP", value: profile.xp.toLocaleString(), suffix: "pts", icon: "⚡" },
-                            { label: "Member since", value: new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }), suffix: "", icon: "📅" },
+                            { label: "Streak", value: profile.streak_current, suffix: "days", icon: <Flame className="w-4 h-4 text-primary" /> },
+                            { label: "Total XP", value: profile.xp.toLocaleString(), suffix: "pts", icon: <Zap className="w-4 h-4 text-primary" /> },
+                            { label: "Member since", value: new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }), suffix: "", icon: <Calendar className="w-4 h-4 text-primary" /> },
                         ].map((s) => (
-                            <div key={s.label} className="rounded-xl bg-muted p-3 text-center">
-                                <span className="text-xl">{s.icon}</span>
-                                <p className="font-display font-bold mt-1">{s.value} {s.suffix}</p>
+                            <div key={s.label} className="rounded-md bg-muted p-3 text-center">
+                                <div className="w-7 h-7 flex items-center justify-center mx-auto mb-1">{s.icon}</div>
+                                <p className="font-semibold mt-1">{s.value} {s.suffix}</p>
                                 <p className="text-xs text-muted-foreground">{s.label}</p>
                             </div>
                         ))}
@@ -241,10 +240,10 @@ export default function PublicProfilePage() {
                 {stats.map((stat) => (
                     <Card key={stat.label}>
                         <CardContent className="p-4">
-                            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center mb-2">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center mb-2">
                                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
                             </div>
-                            <p className={`font-display font-black text-xl ${stat.color}`}>{stat.value}</p>
+                            <p className={`font-semibold text-xl ${stat.color}`}>{stat.value}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
                         </CardContent>
                     </Card>
@@ -256,23 +255,23 @@ export default function PublicProfilePage() {
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <Trophy className="w-4 h-4 text-lime" />
+                            <Trophy className="w-4 h-4 text-primary" />
                             Achievements
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid sm:grid-cols-2 gap-3">
                             {achievements.map((ua) => (
-                                <div key={ua.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-                                    <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center text-xl shrink-0">
-                                        🏆
+                                <div key={ua.id} className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
+                                    <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center text-xl shrink-0">
+
                                     </div>
                                     <div>
                                         <p className="font-semibold text-sm">{ua.achievement?.name}</p>
                                         <p className="text-xs text-muted-foreground">{ua.achievement?.description}</p>
                                     </div>
                                     <div className="ml-auto text-right shrink-0">
-                                        <p className="text-xs font-bold text-lime">+{ua.achievement?.xp_reward} XP</p>
+                                        <p className="text-xs font-semibold text-primary">+{ua.achievement?.xp_reward} XP</p>
                                     </div>
                                 </div>
                             ))}

@@ -5,69 +5,76 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useLanguage, type TranslationKey } from "@/components/providers/LanguageContext";
+import { cn } from "@/lib/utils";
+import {
+  Loader2, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle2, Zap,
+} from "lucide-react";
 
 // ─── Password strength logic ───────────────────────────────────────────────
+// Score 0–4 plus the list of unmet requirements (first one is shown as a hint).
 function getPasswordStrength(password: string): {
-  score: number;       // 0–4
-  label: string;
-  color: string;
-  barColor: string;
-  width: string;
-  tips: string[];
+  score: number;
+  tips: TranslationKey[];
 } {
-  if (!password) return { score: 0, label: "", color: "", barColor: "", width: "0%", tips: [] };
+  if (!password) return { score: 0, tips: [] };
 
   let score = 0;
-  const tips: string[] = [];
+  const tips: TranslationKey[] = [];
 
-  if (password.length >= 8) score++; else tips.push("At least 8 characters");
-  if (/[A-Z]/.test(password)) score++; else tips.push("One uppercase letter");
-  if (/[0-9]/.test(password)) score++; else tips.push("One number");
-  if (/[^A-Za-z0-9]/.test(password)) score++; else tips.push("One special character (!@#$...)");
+  if (password.length >= 8) score++;
+  else tips.push("auth_tip_length");
+  if (/[A-Z]/.test(password)) score++;
+  else tips.push("auth_tip_upper");
+  if (/[0-9]/.test(password)) score++;
+  else tips.push("auth_tip_number");
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  else tips.push("auth_tip_special");
 
-  const levels = [
-    { label: "", color: "text-transparent", barColor: "bg-transparent", width: "0%" },
-    { label: "Weak", color: "text-red-500", barColor: "bg-red-500", width: "25%" },
-    { label: "Fair", color: "text-orange-400", barColor: "bg-orange-400", width: "50%" },
-    { label: "Good", color: "text-yellow-400", barColor: "bg-yellow-400", width: "75%" },
-    { label: "Strong", color: "text-green-400", barColor: "bg-green-400", width: "100%" },
-  ];
-
-  return { score, tips, ...levels[score] };
+  return { score, tips };
 }
 
-// ─── Password strength bar component ──────────────────────────────────────
+const STRENGTH_LEVELS: { label: TranslationKey; bar: string; text: string }[] = [
+  { label: "auth_strength_weak", bar: "bg-red-500", text: "text-red-500" },
+  { label: "auth_strength_fair", bar: "bg-orange-400", text: "text-orange-400" },
+  { label: "auth_strength_good", bar: "bg-yellow-400", text: "text-yellow-500" },
+  { label: "auth_strength_strong", bar: "bg-green-500", text: "text-green-500" },
+];
+
+// ─── Password strength bar ─────────────────────────────────────────────────
 function PasswordStrengthBar({ password }: { password: string }) {
-  const strength = getPasswordStrength(password);
+  const { t } = useLanguage();
+  const { score, tips } = getPasswordStrength(password);
   if (!password) return null;
 
+  const level = STRENGTH_LEVELS[score - 1];
+
   return (
-    <div className="space-y-2 mt-2">
+    <div className="space-y-1.5 pt-1">
       {/* Bar */}
-      <div className="flex gap-1 h-1.5">
-        {[1, 2, 3, 4].map((level) => (
-          <div
-            key={level}
-            className="flex-1 rounded-full bg-white/10 overflow-hidden"
-          >
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map((bar) => (
+          <div key={bar} className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${strength.score >= level ? strength.barColor : "bg-transparent"
-                }`}
+              className={cn(
+                "h-full rounded-full transition-all duration-300",
+                score >= bar && level.bar
+              )}
             />
           </div>
         ))}
       </div>
 
-      {/* Label + tips */}
-      <div className="flex items-center justify-between">
-        <span className={`text-xs font-semibold ${strength.color}`}>
-          {strength.label}
-        </span>
-        {strength.tips.length > 0 && strength.score < 4 && (
-          <span className="text-xs text-muted-foreground">
-            Missing: {strength.tips[0]}
+      {/* Label + first missing requirement */}
+      <div className="flex items-center justify-between text-xs">
+        {score > 0 && (
+          <span className={cn("font-medium", level.text)}>{t(level.label)}</span>
+        )}
+        {tips.length > 0 && (
+          <span className="text-muted-foreground">
+            {t("auth_missing")}: {t(tips[0])}
           </span>
         )}
       </div>
@@ -78,6 +85,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
 // ─── Main register form ────────────────────────────────────────────────────
 export default function RegisterPage() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -93,10 +101,10 @@ export default function RegisterPage() {
     const newErrors: typeof errors = {};
 
     if (strength.score < 2) {
-      newErrors.password = "Please choose a stronger password.";
+      newErrors.password = t("auth_password_weak");
     }
     if (password !== confirmPassword) {
-      newErrors.confirm = "Passwords don't match.";
+      newErrors.confirm = t("auth_password_mismatch");
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -112,12 +120,16 @@ export default function RegisterPage() {
       password,
       options: {
         data: { full_name: fullName },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    console.log("Supabase signup error:", error);
 
     if (error) {
-      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+      toast({
+        title: t("auth_register_failed"),
+        description: error.message,
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
@@ -130,18 +142,24 @@ export default function RegisterPage() {
   if (done) {
     return (
       <div className="space-y-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-lime/10 border border-lime/30 flex items-center justify-center mx-auto">
-          <CheckCircle2 className="w-8 h-8 text-lime" />
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-border bg-muted/50">
+          <CheckCircle2 className="h-5 w-5 text-primary" />
         </div>
         <div className="space-y-2">
-          <h1 className="font-display font-black text-3xl">Check your inbox</h1>
-          <p className="text-muted-foreground">
-            We sent a confirmation link to <span className="text-foreground font-medium">{email}</span>.
-            Click it to activate your account.
+          <h1 className="font-display text-3xl font-semibold tracking-tight">
+            {t("auth_check_inbox")}
+          </h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {t("auth_confirm_sent")}{" "}
+            <span className="font-medium text-foreground">{email}</span>.{" "}
+            {t("auth_confirm_click")}
           </p>
         </div>
-        <Link href="/login" className="text-sm text-lime hover:text-lime-300 transition-colors font-semibold">
-          Back to sign in →
+        <Link
+          href="/login"
+          className="inline-block text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t("auth_back_login")}
         </Link>
       </div>
     );
@@ -150,30 +168,28 @@ export default function RegisterPage() {
   // ── Form ───────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3 lg:hidden">
-        <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center">
-          <span className="font-display font-black text-[#0D0D18] text-base">N</span>
-        </div>
-        <span className="font-display font-bold text-xl">Nahda.Edu</span>
-      </div>
-
       <div className="space-y-2">
-        <h1 className="font-display font-black text-3xl">Create your account</h1>
-        <p className="text-muted-foreground">Join thousands of students leveling up their studies.</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          {t("auth_register_title")}
+        </h1>
+        <p className="text-sm text-muted-foreground">{t("auth_register_sub")}</p>
       </div>
 
-      <form onSubmit={handleRegister} className="space-y-4">
+      <form onSubmit={handleRegister} className="space-y-5">
         {/* Full name */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Full name</label>
+          <label htmlFor="fullName" className="text-sm font-medium">
+            {t("auth_full_name")}
+          </label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <User className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="fullName"
               type="text"
-              placeholder="Youcef Benali"
+              placeholder={t("auth_full_name_ph")}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="pl-10"
+              className="ps-10"
               required
             />
           </div>
@@ -181,15 +197,18 @@ export default function RegisterPage() {
 
         {/* Email */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Email</label>
+          <label htmlFor="email" className="text-sm font-medium">
+            {t("auth_email")}
+          </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="email"
               type="email"
-              placeholder="you@student.edu"
+              placeholder={t("auth_email_ph")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10"
+              className="ps-10"
               required
             />
           </div>
@@ -197,73 +216,99 @@ export default function RegisterPage() {
 
         {/* Password + strength bar */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Password</label>
+          <label htmlFor="password" className="text-sm font-medium">
+            {t("auth_password")}
+          </label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="password"
+            <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <PasswordInput
+              id="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
                 setErrors((prev) => ({ ...prev, password: undefined }));
               }}
-              className={`pl-10 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+              className={cn(
+                "ps-10",
+                errors.password && "border-destructive focus-visible:ring-destructive"
+              )}
               required
             />
           </div>
 
-          {/* Strength bar — shows as user types */}
           <PasswordStrengthBar password={password} />
 
           {errors.password && (
-            <div className="flex items-center gap-2 text-red-500 text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errors.password}</span>
-            </div>
+            <p className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {errors.password}
+            </p>
           )}
         </div>
 
         {/* Confirm password */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Confirm password</label>
+          <label htmlFor="confirmPassword" className="text-sm font-medium">
+            {t("auth_confirm_password")}
+          </label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="password"
+            <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <PasswordInput
+              id="confirmPassword"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => {
                 setConfirmPassword(e.target.value);
                 setErrors((prev) => ({ ...prev, confirm: undefined }));
               }}
-              className={`pl-10 ${errors.confirm ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+              className={cn(
+                "ps-10",
+                errors.confirm && "border-destructive focus-visible:ring-destructive"
+              )}
               required
             />
           </div>
           {errors.confirm && (
-            <div className="flex items-center gap-2 text-red-500 text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errors.confirm}</span>
-            </div>
+            <p className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {errors.confirm}
+            </p>
           )}
         </div>
 
         <Button
           type="submit"
-          className="w-full h-12 text-base"
+          className="w-full"
           disabled={loading || strength.score < 1}
         >
-          {loading ? <Loader2 className="animate-spin" /> : <><ArrowRight className="w-4 h-4" />Create account</>}
+          {loading ? (
+            <Loader2 className="animate-spin" />
+          ) : (
+            <>
+              {t("auth_create_btn")}
+              <ArrowRight />
+            </>
+          )}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-lime hover:text-lime-300 transition-colors">
-          Sign in →
+        {t("auth_have_account")}{" "}
+        <Link
+          href="/login"
+          className="font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+        >
+          {t("sign_in")}
         </Link>
       </p>
+
+      <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/40 p-3.5">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10">
+          <Zap className="h-4 w-4 text-primary" />
+        </div>
+        <p className="text-sm text-muted-foreground">{t("cta_xp")}</p>
+      </div>
     </div>
   );
 }

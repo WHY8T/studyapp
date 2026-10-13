@@ -52,19 +52,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No text provided" }, { status: 400 });
   }
 
-  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "meta/llama-3.3-70b-instruct",
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: `Generate ${count} quiz questions from the following text. Difficulty: ${difficulty}.
+  const prompt = `Generate ${count} quiz questions from the following text. Difficulty: ${difficulty}.
 
 Return ONLY a valid JSON object with this exact structure, no markdown, no explanation:
 {
@@ -87,15 +75,27 @@ Return ONLY a valid JSON object with this exact structure, no markdown, no expla
 }
 
 Text to generate questions from:
-${text}`,
-        },
-      ],
+${text}`;
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://www.nahda-edu.com",
+      "X-Title": "Nahda Edu Quiz Generator",
+    },
+    body: JSON.stringify({
+      model: "meta-llama/llama-3.3-70b-instruct:free",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 4096,
+      temperature: 0.4,
     }),
   });
 
   if (!res.ok) {
     const errorText = await res.text();
-    console.error("NVIDIA API error:", errorText);
+    console.error("OpenRouter API error:", errorText);
     return NextResponse.json({ error: "AI service error", details: errorText }, { status: 502 });
   }
 

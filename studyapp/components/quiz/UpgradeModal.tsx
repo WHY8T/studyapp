@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
+import { Zap } from "lucide-react";
 interface UpgradeModalProps {
     open: boolean;
     onClose: () => void;
@@ -31,10 +31,10 @@ export function UpgradeModal({ open, onClose }: UpgradeModalProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="bg-card border border-border rounded-md p-8 max-w-md w-full mx-4">
                 <div className="text-center mb-6">
-                    <div className="text-4xl mb-3">🚀</div>
-                    <h2 className="text-2xl font-bold text-foreground mb-2">
+                    <div className="mb-3 flex justify-center"><Zap className="w-8 h-8 text-muted-foreground" /></div>
+                    <h2 className="text-xl font-semibold text-foreground mb-2">
                         Upgrade to Pro
                     </h2>
                     <p className="text-muted-foreground">
@@ -42,17 +42,17 @@ export function UpgradeModal({ open, onClose }: UpgradeModalProps) {
                     </p>
                 </div>
 
-                <div className="bg-primary/10 rounded-xl p-4 mb-6">
+                <div className="bg-primary/10 rounded-md p-4 mb-6">
                     <div className="flex items-center justify-between mb-3">
                         <span className="font-semibold text-foreground">Pro Plan</span>
-                        <span className="text-2xl font-bold text-primary">500 DZD/mo</span>
+                        <span className="text-2xl font-semibold text-primary">500 DZD/mo</span>
                     </div>
                     <ul className="space-y-2 text-sm text-muted-foreground">
                         {[
-                            "✅ Unlimited quiz generation",
-                            "✅ PDF uploads up to 10MB",
-                            "✅ All question types",
-                            "✅ Pay with EDAHABIA or CIB",
+                            "Unlimited quiz generation",
+                            "PDF uploads up to 10MB",
+                            "All question types",
+                            "Pay with EDAHABIA or CIB",
                         ].map((f) => (
                             <li key={f}>{f}</li>
                         ))}
@@ -62,14 +62,14 @@ export function UpgradeModal({ open, onClose }: UpgradeModalProps) {
                 <button
                     onClick={handleUpgrade}
                     disabled={loading}
-                    className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:opacity-90 transition disabled:opacity-50"
+                    className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                     {loading ? "Redirecting…" : "Pay with Chargily →"}
                 </button>
 
                 <button
                     onClick={onClose}
-                    className="w-full mt-3 text-muted-foreground text-sm hover:text-foreground transition"
+                    className="w-full mt-3 text-muted-foreground text-sm hover:text-foreground transition-colors"
                 >
                     Maybe later
                 </button>

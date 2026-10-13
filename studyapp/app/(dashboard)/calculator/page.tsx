@@ -34,84 +34,63 @@ const translations = {
 type Lang = "ar" | "fr" | "en";
 type Mode = "grandes" | "university";
 
+function detectLang(): Lang {
+    if (typeof navigator === "undefined") return "fr";
+    const l = navigator.language?.toLowerCase() ?? "";
+    if (l.startsWith("ar")) return "ar";
+    if (l.startsWith("fr")) return "fr";
+    return "fr";
+}
+
 export default function CalculatorPage() {
-    const [lang, setLang] = useState<Lang>("ar");
+    const [lang, setLang] = useState<Lang>(detectLang);
     const [mode, setMode] = useState<Mode>("grandes");
     const t = translations[lang];
     const isRTL = lang === "ar";
 
     return (
-        <div
-            className="min-h-screen bg-[#0a0a0f] text-white"
-            dir={isRTL ? "rtl" : "ltr"}
-        >
-            {/* Background grid */}
-            <div className="fixed inset-0 bg-[linear-gradient(rgba(0,183,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,183,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(0,183,255,0.08),transparent)] pointer-events-none" />
-
-            <div className="relative max-w-4xl mx-auto px-4 py-10">
-                {/* Header */}
-                <div className="mb-10 text-center">
-                    <div className="inline-flex items-center gap-2 bg-[#00b7ff]/10 border border-[#00b7ff]/20 rounded-full px-4 py-1.5 text-[#00b7ff] text-sm font-medium mb-5 font-mono tracking-wider">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#00b7ff] animate-pulse" />
-                        CALCULATOR
-                    </div>
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-br from-white via-white to-white/40 bg-clip-text text-transparent mb-3">
-                        {t.title}
-                    </h1>
-                    <p className="text-white/40 text-base">{t.subtitle}</p>
+        <div className="max-w-4xl mx-auto space-y-6" dir={isRTL ? "rtl" : "ltr"}>
+            <div>
+                <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1 text-primary text-xs font-medium mb-3 font-mono tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    CALCULATOR
                 </div>
-
-                {/* Controls row */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                    {/* Mode switcher */}
-                    <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
-                        {(["grandes", "university"] as Mode[]).map((m) => (
-                            <button
-                                key={m}
-                                onClick={() => setMode(m)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${mode === m
-                                    ? "bg-[#00b7ff] text-black shadow-lg shadow-[#00b7ff]/20"
-                                    : "text-white/50 hover:text-white"
-                                    }`}
-                            >
-                                {m === "grandes" ? t.modeGrandes : t.modeUniversity}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Language switcher */}
-                    <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
-                        {(["ar", "fr", "en"] as Lang[]).map((l) => (
-                            <button
-                                key={l}
-                                onClick={() => setLang(l)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-200 ${lang === l
-                                    ? "bg-white/15 text-white"
-                                    : "text-white/30 hover:text-white/60"
-                                    }`}
-                            >
-                                {l}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Mode description */}
-                <div className="mb-6 flex items-center gap-3 text-white/40 text-sm">
-                    <div className="w-8 h-px bg-white/10" />
-                    <span>
-                        {mode === "grandes" ? t.grandesDesc : t.universityDesc}
-                    </span>
-                </div>
-
-                {/* Calculator */}
-                {mode === "grandes" ? (
-                    <GrandesEcolesCalculator lang={lang} isRTL={isRTL} />
-                ) : (
-                    <UniversityCalculator lang={lang} isRTL={isRTL} />
-                )}
+                <h1 className="font-display text-2xl font-semibold tracking-tight">
+                    {t.title}
+                </h1>
+                <p className="text-muted-foreground text-sm mt-1">{t.subtitle}</p>
             </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex gap-2">
+                    {(["grandes", "university"] as Mode[]).map((m) => (
+                        <button key={m} onClick={() => setMode(m)}
+                            className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors ${mode === m ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}>
+                            {m === "grandes" ? t.modeGrandes : t.modeUniversity}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {(["ar", "fr", "en"] as Lang[]).map((l) => (
+                        <button key={l} onClick={() => setLang(l)}
+                            className={`rounded-full px-3 py-1 text-xs font-medium uppercase transition-colors ${lang === l ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                            {l}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                <div className="w-8 h-px bg-border" />
+                <span>{mode === "grandes" ? t.grandesDesc : t.universityDesc}</span>
+            </div>
+
+            {mode === "grandes" ? (
+                <GrandesEcolesCalculator lang={lang} isRTL={isRTL} />
+            ) : (
+                <UniversityCalculator lang={lang} isRTL={isRTL} />
+            )}
         </div>
     );
 }

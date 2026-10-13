@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/components/providers/LanguageContext";
 import {
   LayoutDashboard, Timer, CheckSquare, Calendar, Sparkles,
-  Trophy, Users, User, LogOut, Flame, Zap, BarChart2, X, BookOpen,
+  Trophy, Users, User, LogOut, Flame, Zap, BarChart2, X, BookOpen, Library,
 } from "lucide-react";
 import type { Profile } from "@/types";
 import { Calculator } from "lucide-react";
@@ -45,18 +45,34 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
   const levelInfo = profile ? getLevelInfo(profile.xp) : null;
 
   // Nav items use t() so they update when language changes
-  const NAV_ITEMS = [
-    { href: "/dashboard", label: t("nav_dashboard"), icon: LayoutDashboard },
-    { href: "/pomodoro", label: t("nav_pomodoro"), icon: Timer },
-    { href: "/todos", label: t("nav_tasks"), icon: CheckSquare },
-    { href: "/calendar", label: t("nav_calendar"), icon: Calendar },
-    { href: "/quiz", label: t("nav_quiz"), icon: Sparkles, badge: "AI" },
-    { href: "/achievements", label: t("nav_achievements"), icon: Trophy },
-    { href: "/leaderboard", label: t("nav_leaderboard"), icon: BarChart2 },
-    { href: "/friends", label: t("nav_friends"), icon: Users },
-    { href: "/showcase", label: t("nav_showcase"), icon: BookOpen },
-    { href: "/profile", label: t("nav_profile"), icon: User },
-    { href: "/calculator", label: "Calculator", icon: Calculator }
+  const NAV_GROUPS = [
+    {
+      label: t("sidebar_group_study"),
+      items: [
+        { href: "/dashboard", label: t("nav_dashboard"), icon: LayoutDashboard },
+        { href: "/pomodoro", label: t("nav_pomodoro"), icon: Timer },
+        { href: "/todos", label: t("nav_tasks"), icon: CheckSquare },
+        { href: "/subjects", label: t("nav_subjects"), icon: Library },
+        { href: "/calendar", label: t("nav_calendar"), icon: Calendar },
+        { href: "/quiz", label: t("nav_quiz"), icon: Sparkles, badge: "AI" },
+      ],
+    },
+    {
+      label: t("sidebar_group_social"),
+      items: [
+        { href: "/achievements", label: t("nav_achievements"), icon: Trophy },
+        { href: "/leaderboard", label: t("nav_leaderboard"), icon: BarChart2 },
+        { href: "/friends", label: t("nav_friends"), icon: Users },
+        { href: "/showcase", label: t("nav_showcase"), icon: BookOpen },
+      ],
+    },
+    {
+      label: t("sidebar_group_tools"),
+      items: [
+        { href: "/calculator", label: "Calculator", icon: Calculator },
+        { href: "/profile", label: t("nav_profile"), icon: User },
+      ],
+    },
   ];
 
   useEffect(() => {
@@ -73,33 +89,66 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
 
   return (
     <>
-      <aside className="w-64 shrink-0 h-full flex flex-col border-r border-border bg-card">
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3 group" onClick={onClose}>
-            <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center transition-transform group-hover:scale-110">
-              <span className="font-display font-black text-[#0D0D18] text-base">N</span>
+      <aside className={cn("w-64 shrink-0 h-full flex flex-col bg-background", isRTL ? "border-l" : "border-r", "border-border")}>
+        <div className="h-14 shrink-0 px-4 border-b border-border flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+              <span className="font-display font-bold text-primary-foreground text-sm">N</span>
             </div>
             <div>
-              <p className="font-display font-black text-base leading-none">Nahda.Edu</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t("sidebar_tagline")}</p>
+              <p className="font-display font-bold text-sm leading-none">Nahda.Edu</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{t("sidebar_tagline")}</p>
             </div>
           </Link>
-          <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+          <button onClick={onClose} className="lg:hidden p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        <nav className="flex-1 px-3 py-3 overflow-y-auto scrollbar-thin">
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.label} className="space-y-0.5">
+              <p className={cn("px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60", gi === 0 ? "pt-0.5" : "pt-4")} dir={isRTL ? "rtl" : "ltr"}>
+                {group.label}
+              </p>
+              {group.items.map(({ href, label, icon: Icon, badge }) => {
+                const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+                return (
+                  <Link key={href} href={href}
+                    className={cn(
+                      "flex h-8 items-center gap-2.5 rounded-md px-3 text-sm font-medium transition-colors",
+                      active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span dir={isRTL ? "rtl" : "ltr"}>{label}</span>
+                    {badge && <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">{badge}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        {hm && (
+          <div className="px-3 pb-2">
+            <button onClick={() => setClockOpen(true)} className="w-full flex h-8 items-center justify-center gap-2 rounded-md border border-border hover:bg-muted transition-colors">
+              <span suppressHydrationWarning className="font-mono font-bold text-sm text-foreground tracking-widest">{hms}</span>
+            </button>
+          </div>
+        )}
+
         {profile && levelInfo && (
-          <div className="px-4 py-4 border-b border-border">
-            <div className="rounded-xl bg-muted/50 p-3 space-y-3">
+          <div className="px-3 py-3 border-t border-border">
+            <div className="rounded-lg bg-muted/50 p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="level-badge text-xs">{levelInfo.level}</div>
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display font-bold text-xs text-primary">{levelInfo.level}</div>
                   <span className="font-display font-semibold text-sm truncate max-w-[100px]">{profile.username}</span>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Zap className="w-3 h-3 text-lime" />
-                  <span className="text-lime font-semibold">{profile.xp.toLocaleString()}</span>
+                  <Zap className="h-3 w-3" />
+                  <span className="font-semibold">{profile.xp.toLocaleString()}</span>
                 </div>
               </div>
               <div className="space-y-1">
@@ -112,67 +161,39 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
                 <Progress value={levelInfo.xpProgress} className="h-1.5" />
               </div>
               {profile.streak_current > 0 && (
-                <div className="flex items-center gap-1.5 text-xs">
-                  <Flame className="w-3.5 h-3.5 text-orange-400" />
-                  <span className="text-orange-400 font-semibold" dir={isRTL ? "rtl" : "ltr"}>
-                    {profile.streak_current} {t("sidebar_day_streak")}
-                  </span>
-                </div>
+                <span className="inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary" dir={isRTL ? "rtl" : "ltr"}>
+                  <Flame className="h-3 w-3" />
+                  {profile.streak_current} {t("sidebar_day_streak")}
+                </span>
               )}
             </div>
           </div>
         )}
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
-          {NAV_ITEMS.map(({ href, label, icon: Icon, badge }) => {
-            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-            return (
-              <Link key={href} href={href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  active ? "bg-lime text-[#0D0D18] font-semibold shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className={cn("w-4 h-4 shrink-0", active ? "text-[#0D0D18]" : "")} />
-                <span dir={isRTL ? "rtl" : "ltr"}>{label}</span>
-                {badge && <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-400/20 text-green-400">{badge}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {hm && (
-          <div className="px-4 pb-2">
-            <button onClick={() => setClockOpen(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border hover:bg-muted transition-colors">
-              <span suppressHydrationWarning className="font-mono font-bold text-base text-foreground tracking-widest">{hms}</span>
-            </button>
-          </div>
-        )}
-
-        <div className="p-4 border-t border-border">
-          <button onClick={handleSignOut} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive w-full transition-all duration-200">
-            <LogOut className="w-4 h-4" />
+        <div className="px-3 py-3 border-t border-border" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
+          <button onClick={handleSignOut} className="flex h-8 items-center gap-2.5 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive w-full transition-colors">
+            <LogOut className="h-4 w-4" />
             <span dir={isRTL ? "rtl" : "ltr"}>{t("nav_signout")}</span>
           </button>
         </div>
       </aside>
 
       {clockOpen && (
-        <div className="fixed inset-0 z-50 bg-[#08080F] flex flex-col items-center justify-center cursor-pointer" onClick={() => setClockOpen(false)}>
-          <button onClick={(e) => { e.stopPropagation(); setClockOpen(false); }} className="absolute top-6 right-6 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white">
+        <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center cursor-pointer" onClick={() => setClockOpen(false)}>
+          <button onClick={(e) => { e.stopPropagation(); setClockOpen(false); }} className="absolute top-6 right-6 p-3 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors">
             <X className="w-6 h-6" />
           </button>
           <div className="space-y-4 text-center select-none">
-            <p suppressHydrationWarning className="text-white/30 text-sm uppercase tracking-[0.3em] font-semibold">
+            <p suppressHydrationWarning className="text-muted-foreground/30 text-sm uppercase tracking-[0.3em] font-semibold">
               {new Date().toLocaleDateString(
                 language === "ar" ? "ar-DZ" : language === "fr" ? "fr-FR" : "en-US",
                 { weekday: "long", month: "long", day: "numeric", year: "numeric" }
               )}
             </p>
-            <div suppressHydrationWarning className="font-mono font-bold text-white" style={{ fontSize: "clamp(4rem, 14vw, 11rem)", letterSpacing: "-0.02em", textShadow: "0 0 80px rgba(0,183,255,0.25)" }}>
+            <div suppressHydrationWarning className="font-mono font-bold text-foreground" style={{ fontSize: "clamp(4rem, 14vw, 11rem)", letterSpacing: "-0.02em" }}>
               {hms}
             </div>
-            <p className="text-white/20 text-sm">{t("clock_close")}</p>
+            <p className="text-muted-foreground/20 text-sm">{t("clock_close")}</p>
           </div>
         </div>
       )}

@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/components/providers/LanguageContext";
 import { formatMinutes } from "@/lib/utils";
@@ -70,10 +72,10 @@ export default function FriendsPage() {
     if (!userId) return;
     const { error } = await supabase.from("friendships").insert({ requester_id: userId, addressee_id: targetId, status: "pending" });
     if (!error) {
-      toast({ title: "Friend request sent! 👋" });
+      toast({ title: "Friend request sent! " });
       setSearchResults((prev) => prev.filter((p) => p.id !== targetId));
       await fetchFriends(userId);
-      await fetch("/api/notifications/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetUserId: targetId, title: "New Friend Request 👋", body: `${myProfile?.username} wants to be your study buddy!`, url: "/friends" }) });
+      await fetch("/api/notifications/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetUserId: targetId, title: "New Friend Request ", body: `${myProfile?.username} wants to be your study buddy!`, url: "/friends" }) });
     }
   };
 
@@ -83,7 +85,7 @@ export default function FriendsPage() {
     if (accept) {
       toast({ title: "Friend added!", description: "You can now see each other's progress" });
       const acceptedFriend = pendingReceived.find((f) => f.friendship.id === friendshipId);
-      if (acceptedFriend) await fetch("/api/notifications/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetUserId: acceptedFriend.profile.id, title: "Friend Request Accepted! 🎉", body: `${myProfile?.username} accepted your friend request!`, url: "/friends" }) });
+      if (acceptedFriend) await fetch("/api/notifications/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetUserId: acceptedFriend.profile.id, title: "Friend Request Accepted! ", body: `${myProfile?.username} accepted your friend request!`, url: "/friends" }) });
     }
     await fetchFriends(userId);
   };
@@ -96,10 +98,10 @@ export default function FriendsPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-black text-2xl" dir={isRTL ? "rtl" : "ltr"}>{t("friends_title")}</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight" dir={isRTL ? "rtl" : "ltr"}>{t("friends_title")}</h1>
           <p className="text-muted-foreground text-sm mt-1" dir={isRTL ? "rtl" : "ltr"}>{friends.length} {t("friends_title")} • {t("friends_subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2"><Users className="w-5 h-5 text-muted-foreground" /><span className="font-bold">{friends.length}</span></div>
+        <div className="flex items-center gap-2"><Users className="w-4 h-4 text-muted-foreground" /><span className="font-semibold">{friends.length}</span></div>
       </div>
 
       <Card>
@@ -121,10 +123,10 @@ export default function FriendsPage() {
                 const requestSent = pendingSent.some((f) => f.profile.id === p.id);
                 const levelInfo = getLevelInfoFn(p.xp);
                 return (
-                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border border-border">
-                    <div className="w-10 h-10 rounded-full bg-lime/20 flex items-center justify-center font-bold text-lime">{p.username.slice(0, 2).toUpperCase()}</div>
+                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-md border border-border">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground">{p.username.slice(0, 2).toUpperCase()}</div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2"><p className="font-semibold text-sm">{p.username}</p><div className="level-badge text-[10px]">Lv.{levelInfo.level}</div></div>
+                      <div className="flex items-center gap-2"><p className="font-semibold text-sm">{p.username}</p><Badge variant="secondary" className="shrink-0">Lv.{levelInfo.level}</Badge></div>
                       <p className="text-xs text-muted-foreground">{p.xp.toLocaleString()} XP</p>
                     </div>
                     {alreadyFriend ? <Badge variant="muted">{t("friends_already")}</Badge> : requestSent ? <Badge variant="muted">{t("friends_requested")}</Badge> : <Button size="sm" onClick={() => sendRequest(p.id)}><UserPlus className="w-3 h-3" />{t("friends_add")}</Button>}
@@ -137,17 +139,17 @@ export default function FriendsPage() {
       </Card>
 
       {pendingReceived.length > 0 && (
-        <Card className="border-lime/30">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-lime flex items-center justify-center text-xs font-bold text-[#0D0D18]">{pendingReceived.length}</span>
+              <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">{pendingReceived.length}</span>
               {t("friends_requests")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingReceived.map(({ friendship, profile: p }) => (
-              <div key={friendship.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
-                <div className="w-10 h-10 rounded-full bg-lime/20 flex items-center justify-center font-bold text-lime">{p.username.slice(0, 2).toUpperCase()}</div>
+              <div key={friendship.id} className="flex items-center gap-3 p-3 rounded-md border border-border">
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground">{p.username.slice(0, 2).toUpperCase()}</div>
                 <div className="flex-1"><p className="font-semibold text-sm">{p.username}</p><p className="text-xs text-muted-foreground">{p.xp.toLocaleString()} XP</p></div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => respondToRequest(friendship.id, false)}><X className="w-4 h-4 text-destructive" /></Button>
@@ -160,44 +162,40 @@ export default function FriendsPage() {
       )}
 
       <div>
-        <h2 className="font-display font-bold text-lg mb-4" dir={isRTL ? "rtl" : "ltr"}>{t("friends_your_friends")}</h2>
+        <h2 className="font-display font-semibold text-lg mb-4" dir={isRTL ? "rtl" : "ltr"}>{t("friends_your_friends")}</h2>
         {friends.length === 0 ? (
-          <Card><CardContent className="py-16 text-center">
-            <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="font-semibold text-muted-foreground">{t("friends_no_friends")}</p>
-            <p className="text-sm text-muted-foreground mt-1">{t("friends_no_friends_sub")}</p>
-          </CardContent></Card>
+          <EmptyState icon={Users} title={t("friends_no_friends")} description={t("friends_no_friends_sub")} className="py-16" />
         ) : (
           <div className="grid sm:grid-cols-2 gap-4">
             {friends.map(({ friendship, profile: p }) => {
               const levelInfo = getLevelInfoFn(p.xp);
               return (
-                <Card key={friendship.id} className="card-hover cursor-pointer" onClick={() => router.push(`/profile/${p.username}`)}>
+                <Card key={friendship.id} className="cursor-pointer transition-colors hover:bg-muted/30" onClick={() => router.push(`/profile/${p.username}`)}>
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-lime to-lime-600 flex items-center justify-center font-bold text-[#0D0D18] text-lg">{p.username.slice(0, 2).toUpperCase()}</div>
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center font-semibold text-muted-foreground text-sm">{p.username.slice(0, 2).toUpperCase()}</div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2"><p className="font-display font-bold truncate">{p.username}</p><div className="level-badge text-[10px]">Lv.{levelInfo.level}</div></div>
+                        <div className="flex items-center gap-2"><p className="font-display font-semibold truncate">{p.username}</p><Badge variant="secondary" className="shrink-0">Lv.{levelInfo.level}</Badge></div>
                         {p.full_name && <p className="text-xs text-muted-foreground">{p.full_name}</p>}
                       </div>
-                      <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); removeFriend(friendship.id); }} className="text-muted-foreground hover:text-destructive"><X className="w-3 h-3" /></Button>
+                      <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); removeFriend(friendship.id); }} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></Button>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { icon: Zap, label: t("friends_xp"), value: p.xp.toLocaleString(), color: "text-lime" },
-                        { icon: Flame, label: t("friends_streak"), value: `${p.streak_current}d`, color: "text-orange-400" },
-                        { icon: Clock, label: t("friends_studied"), value: formatMinutes(p.total_study_minutes), color: "text-blue-400" },
+                        { icon: Zap, label: t("friends_xp"), value: p.xp.toLocaleString(), color: "text-muted-foreground" },
+                        { icon: Flame, label: t("friends_streak"), value: `${p.streak_current}d`, color: "text-warning" },
+                        { icon: Clock, label: t("friends_studied"), value: formatMinutes(p.total_study_minutes), color: "text-primary" },
                       ].map((stat) => (
-                        <div key={stat.label} className="rounded-lg bg-muted p-2 text-center">
+                        <div key={stat.label} className="rounded-md bg-muted p-2 text-center">
                           <stat.icon className={`w-3 h-3 mx-auto mb-1 ${stat.color}`} />
-                          <p className={`font-bold text-xs ${stat.color}`}>{stat.value}</p>
+                          <p className={`font-semibold text-xs ${stat.color}`}>{stat.value}</p>
                           <p className="text-[10px] text-muted-foreground">{stat.label}</p>
                         </div>
                       ))}
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs text-muted-foreground"><span>Level {levelInfo.level}</span><span>{levelInfo.xpProgress}%</span></div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-lime transition-all" style={{ width: `${levelInfo.xpProgress}%` }} /></div>
+                      <Progress value={levelInfo.xpProgress} className="h-1.5" />
                     </div>
                   </CardContent>
                 </Card>

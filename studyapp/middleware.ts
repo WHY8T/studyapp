@@ -46,10 +46,17 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/auth");
 
-  const isPublic = pathname === "/" || isAuthPage;
+  const isPublic = pathname === "/" || isAuthPage || pathname === "/nahda.apk" || pathname === "/progressier.js";
 
-  // ✅ Only ONE getUser() call — result reused for both session refresh and route protection
-  const { data: { user } } = await supabase.auth.getUser();
+  // Refresh session — use getUser() not getSession() for security
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Network error — don't redirect, let the page handle it
+    return response;
+  }
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/hooks/use-toast";
 import { formatMinutes, generateColor } from "@/lib/utils";
 import type { Subject } from "@/types";
@@ -78,7 +79,7 @@ export default function SubjectsPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-black text-2xl">Subjects</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">Subjects</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {subjects.length} subjects • {formatMinutes(totalMinutes)} total study time
           </p>
@@ -90,7 +91,7 @@ export default function SubjectsPage() {
       </div>
 
       {showForm && (
-        <Card className="border-lime/30">
+        <Card className="border-muted/30">
           <CardContent className="p-5">
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="flex items-center justify-between">
@@ -114,7 +115,7 @@ export default function SubjectsPage() {
                       key={c}
                       type="button"
                       onClick={() => setColor(c)}
-                      className="w-8 h-8 rounded-full transition-transform hover:scale-110"
+                      className="w-8 h-8 rounded-full transition-opacity hover:opacity-80"
                       style={{
                         background: c,
                         outline: color === c ? `3px solid ${c}` : "none",
@@ -140,30 +141,29 @@ export default function SubjectsPage() {
           <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
         </div>
       ) : subjects.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="font-semibold text-muted-foreground">No subjects yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Add your first subject to organize your study sessions</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={BookOpen}
+          title="No subjects yet"
+          description="Add your first subject to organize your study sessions"
+          className="py-16"
+        />
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {subjects.map((subject) => {
             const pct = totalMinutes > 0 ? (subject.total_minutes / totalMinutes) * 100 : 0;
             return (
-              <Card key={subject.id} className="card-hover">
+              <Card key={subject.id}>
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        className="w-10 h-10 rounded-md flex items-center justify-center"
                         style={{ background: `${subject.color}20` }}
                       >
                         <BookOpen className="w-5 h-5" style={{ color: subject.color }} />
                       </div>
                       <div>
-                        <p className="font-display font-bold">{subject.name}</p>
+                        <p className="font-display font-semibold">{subject.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatMinutes(subject.total_minutes)} studied
                         </p>
@@ -171,7 +171,7 @@ export default function SubjectsPage() {
                     </div>
                     <button
                       onClick={() => deleteSubject(subject.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-md"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -181,7 +181,7 @@ export default function SubjectsPage() {
                       <span>% of total study time</span>
                       <span>{Math.round(pct)}%</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{ width: `${pct}%`, background: subject.color }}
