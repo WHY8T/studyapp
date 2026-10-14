@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sun, Moon, Menu } from "lucide-react";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { FeedbackButton } from "@/components/layout/FeedbackButton";
 import { useLanguage } from "@/components/providers/LanguageContext";
 import type { Profile } from "@/types";
 
@@ -54,6 +55,7 @@ export function Header({ profile, onMenuToggle }: HeaderProps) {
       <div className="flex items-center gap-2">
         <NotificationBell />
         <LanguageSwitcher />
+        <FeedbackButton />
         <Button
           variant="ghost"
           size="icon-sm"
