@@ -77,16 +77,16 @@ Return ONLY a valid JSON object with this exact structure, no markdown, no expla
 Text to generate questions from:
 ${text}`;
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
       "Content-Type": "application/json",
       "HTTP-Referer": "https://www.nahda-edu.com",
       "X-Title": "Nahda Edu Quiz Generator",
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-3.3-70b-instruct:free",
+      model: "meta/llama-3.3-70b-instruct",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 4096,
       temperature: 0.4,
