@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            model: "meta/llama-3.3-70b-instruct",
+            model: "nvidia/nemotron-3-super-120b-a12b",
             max_tokens: 2048,
             messages: [
                 {

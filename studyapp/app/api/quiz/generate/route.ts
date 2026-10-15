@@ -86,7 +86,7 @@ ${text}`;
       "X-Title": "Nahda Edu Quiz Generator",
     },
     body: JSON.stringify({
-      model: "meta/llama-3.3-70b-instruct",
+      model: "nvidia/nemotron-3-super-120b-a12b",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 4096,
       temperature: 0.4,
