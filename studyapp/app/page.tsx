@@ -8,6 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { useLanguage } from "@/components/providers/LanguageContext";
 import {
+  useLandingCopy, HowItWorks, QuizPreview, ForAlgeria, Pricing, Faq, FooterLinks,
+} from "@/components/landing/Sections";
+import {
   Zap, ArrowRight, Lock, Timer, Brain, Trophy, Users, CheckSquare,
   Calendar, Flame, CheckCircle2, Circle,
 } from "lucide-react";
@@ -141,6 +144,7 @@ function DashboardMock() {
 
 export default function LandingPage() {
   const { t } = useLanguage();
+  const c = useLandingCopy();
 
   const features = [
     { icon: Timer, title: t("feat_pomodoro_title"), description: t("feat_pomodoro_desc") },
@@ -151,12 +155,21 @@ export default function LandingPage() {
     { icon: Calendar, title: t("feat_calendar_title"), description: t("feat_calendar_desc") },
   ];
 
+  const navLink =
+    "rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground";
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div dir={c.dir} className="min-h-screen bg-background text-foreground">
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Logo />
+          <nav className="hidden items-center gap-1 md:flex">
+            <a href="#features" className={navLink}>{c.nav.features}</a>
+            <a href="#how-it-works" className={navLink}>{c.nav.how}</a>
+            <a href="#pricing" className={navLink}>{c.nav.pricing}</a>
+            <a href="#faq" className={navLink}>{c.nav.faq}</a>
+          </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher variant="dark" />
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
@@ -198,7 +211,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section id="features" className="border-t border-border/60">
+      <section id="features" className="scroll-mt-14 border-t border-border/60">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="max-w-2xl">
             <p className="text-sm font-semibold text-primary">{t("features_label")}</p>
@@ -221,42 +234,52 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* New long-page sections */}
+      <HowItWorks />
+      <QuizPreview />
+      <ForAlgeria />
+      <Pricing />
+      <Faq />
+
       {/* Final CTA */}
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-        <div className="mx-auto max-w-5xl rounded-lg border border-border px-6 py-12 text-center sm:px-12 sm:py-16">
-          <p className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Flame className="h-4 w-4" />
-            {t("cta_streak")}
-          </p>
-          <h2 className="mt-4 text-3xl font-display font-semibold tracking-tight sm:text-4xl">
-            {t("cta_title")}
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-            {t("cta_desc")}
-          </p>
-          <div className="mt-8">
-            <Button asChild size="lg">
-              <Link href="/register">
-                {t("cta_button")}
-                <ArrowRight />
-              </Link>
-            </Button>
+      <section className="border-t border-border/60">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mx-auto max-w-5xl rounded-lg border border-border px-6 py-12 text-center sm:px-12 sm:py-16">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Flame className="h-4 w-4" />
+              {t("cta_streak")}
+            </p>
+            <h2 className="mt-4 text-3xl font-display font-semibold tracking-tight sm:text-4xl">
+              {t("cta_title")}
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
+              {t("cta_desc")}
+            </p>
+            <div className="mt-8">
+              <Button asChild size="lg">
+                <Link href="/register">
+                  {t("cta_button")}
+                  <ArrowRight />
+                </Link>
+              </Button>
+            </div>
+            <p className="mt-4 text-sm text-muted-foreground/70">{t("cta_xp")}</p>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground/70">{t("cta_xp")}</p>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-border/60">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <FooterLinks />
+
+          <div className="mt-10 flex flex-col gap-6 border-t border-border/60 pt-8 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-3">
               <Logo />
               <p className="text-sm text-muted-foreground">{t("footer_copy")}</p>
               <p className="text-xs text-muted-foreground/70">
                 {t("footer_credit")}{" "}
                 <span className="font-medium text-foreground">Ghoubali Abdelwaheb</span>
-                {" "}— {t("footer_tagline")}
               </p>
             </div>
             <div className="flex items-center gap-2">
