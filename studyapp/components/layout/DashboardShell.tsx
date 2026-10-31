@@ -3,17 +3,28 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { AppShell } from "@/components/layout/AppShell";
 import type { Profile } from "@/types";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+
 export function DashboardShell({
     profile,
     children,
+    floating,
+    isApp = false,
 }: {
     profile: Profile | null;
     children: React.ReactNode;
+    floating?: React.ReactNode;
+    isApp?: boolean;
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     usePushNotifications();
+
+    // Inside the Android app: bottom bar layout instead of sidebar + header
+    if (isApp) {
+        return <AppShell floating={floating}>{children}</AppShell>;
+    }
 
     return (
         <div className="flex h-screen bg-background overflow-hidden">
@@ -37,12 +48,15 @@ export function DashboardShell({
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-                <Header
-                    profile={profile}
-                    onMenuToggle={() => setSidebarOpen(true)}
-                />
-                <main className="flex-1 overflow-y-auto scrollbar-thin" style={{ overscrollBehavior: "none", WebkitOverflowScrolling: "touch" as any }}>
-                    <div className="p-4 lg:p-6 max-w-7xl mx-auto">{children}</div>
+                <Header profile={profile} onMenuToggle={() => setSidebarOpen(true)} />
+                <main
+                    className="flex-1 overflow-y-auto scrollbar-thin"
+                    style={{ overscrollBehavior: "none", WebkitOverflowScrolling: "touch" as any }}
+                >
+                    <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+                        {children}
+                        {floating}
+                    </div>
                 </main>
             </div>
         </div>
