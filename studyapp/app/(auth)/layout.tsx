@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Timer, Brain, Users } from "lucide-react";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { useLanguage } from "@/components/providers/LanguageContext";
@@ -26,6 +27,10 @@ const FEATURES = [
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const { t, isRTL } = useLanguage();
+  const [isApp, setIsApp] = useState<boolean | null>(null);
+  useEffect(() => {
+    setIsApp(navigator.userAgent.includes("NahdaApp"));
+  }, []);
 
   return (
     <div
@@ -75,7 +80,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div className="lg:hidden">
               <Logo />
             </div>
-            <LanguageSwitcher variant="dark" />
+            {isApp === false && <LanguageSwitcher variant="dark" />}
           </header>
 
           <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
