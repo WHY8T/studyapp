@@ -3,7 +3,6 @@ import { Inter, IBM_Plex_Sans_Arabic, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { LanguageProvider } from "@/components/providers/LanguageContext";
-import { AppBanner } from "@/components/AppBanner";
 import HtmlAttributes from "@/components/HtmlAttributes";
 
 const inter = Inter({
@@ -64,7 +63,7 @@ export default function RootLayout({
         >
           <LanguageProvider>
             <HtmlAttributes />
-            <AppBanner />
+
             {children}
           </LanguageProvider>
         </ThemeProvider>

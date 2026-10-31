@@ -35,7 +35,7 @@ export function AppShell({
 
     return (
         <div className="flex h-dvh flex-col bg-background text-foreground">
-            <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+            <header className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-background px-3">
                 <div className="flex items-center gap-2">
                     <span className="grid h-7 w-7 place-items-center rounded-md bg-primary font-display text-sm font-bold text-primary-foreground">
                         N
