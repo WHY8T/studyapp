@@ -1,6 +1,7 @@
 "use client";
-
 import Link from "next/link";
+import { useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -145,6 +146,14 @@ function DashboardMock() {
 export default function LandingPage() {
   const { t } = useLanguage();
   const c = useLandingCopy();
+
+  // Inside the Android app there is no landing page: go straight to login or dashboard
+  useEffect(() => {
+    if (!navigator.userAgent.includes("NahdaApp")) return;
+    createClient().auth.getSession().then(({ data }) => {
+      window.location.replace(data.session ? "/dashboard" : "/login");
+    });
+  }, []);
 
   const features = [
     { icon: Timer, title: t("feat_pomodoro_title"), description: t("feat_pomodoro_desc") },
