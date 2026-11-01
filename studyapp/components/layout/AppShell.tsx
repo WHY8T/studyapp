@@ -35,12 +35,12 @@ export function AppShell({
 
     return (
         <div className="flex h-dvh flex-col bg-background text-foreground">
-            <header className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-background px-3">
+            <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-3">
                 <div className="flex items-center gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-md bg-primary font-display text-sm font-bold text-primary-foreground">
+                    <span className="grid h-6 w-6 place-items-center rounded-md bg-primary font-display text-xs font-bold text-primary-foreground">
                         N
                     </span>
-                    <span className="font-display text-base font-semibold tracking-tight">Nahda.Edu</span>
+                    <span className="font-display text-sm font-semibold tracking-tight">Nahda.Edu</span>
                 </div>
                 <NotificationBell />
             </header>
@@ -65,7 +65,7 @@ export function AppShell({
                                 href={href}
                                 aria-current={active ? "page" : undefined}
                                 className={cn(
-                                    "flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                                    "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
                                     active ? "text-primary" : "text-muted-foreground"
                                 )}
                             >
@@ -80,7 +80,7 @@ export function AppShell({
             {/* The chat and timer bubbles sit above the bottom bar, not on top of it */}
             {floating && (
                 <div
-                    className="pointer-events-none fixed bottom-14 left-0 right-0 top-0 z-[60] [&>*]:pointer-events-auto"
+                    className="pointer-events-none fixed bottom-16 left-0 right-0 top-0 z-[60] [&>*]:pointer-events-auto"
                     style={{ transform: "translateZ(0)" }}
                 >
                     {floating}
